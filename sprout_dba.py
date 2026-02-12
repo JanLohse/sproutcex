@@ -1,5 +1,5 @@
+from graph_functions import Graph, Automaton
 from omega_language_modelling import llstr
-from utils import Graph, Automaton
 
 
 def extend_state(words, q="", graph=None):
@@ -75,7 +75,7 @@ def infinity_run(graph_dict, word, initial_state):
             return False, count, current
         sequence.append(current)
         if (current, index) in index_map:
-            return True, set(sequence[index_map[(current, index)]:]), None
+            return True, set(sequence[index_map[(current, index)] :]), None
         index_map[(current, index)] = len(sequence)
         index = (index + 1) % loop_len
         count += 1
@@ -86,7 +86,7 @@ def escape_prefix(graph_dict, word, initial_state):
     if success:
         return None
     else:
-        return word[:result + 1]
+        return word[: result + 1]
 
 
 def escapes(graph_dict, plus, initial_state):
@@ -103,7 +103,9 @@ def extend(graph_dict, plus, initial_state):
     for word in plus:
         success, count, state = infinity_run(graph_dict, word, initial_state)
         if not success:
-            escape_strings.setdefault(state, set()).add(word[count:count + len(word.loop)])
+            escape_strings.setdefault(state, set()).add(
+                word[count : count + len(word.loop)]
+            )
 
     for q0, loops in escape_strings.items():
         extend_state(loops, q0, graph_dict)
@@ -182,7 +184,11 @@ def sprout_dba(plus, minus, square_threshold=False):
     graph_dict = Graph({initial_state: {}})
     samples = {*plus, *minus}
     if square_threshold:
-        threshold = max([len(x.prefix) for x in samples] + [0]) + max([len(x.loop) for x in samples] + [0]) ** 2 + 1
+        threshold = (
+            max([len(x.prefix) for x in samples] + [0])
+            + max([len(x.loop) for x in samples] + [0]) ** 2
+            + 1
+        )
     else:
         threshold = max([len(x) for x in samples] + [0]) * 2 - 1
 
@@ -193,7 +199,9 @@ def sprout_dba(plus, minus, square_threshold=False):
         a = ua[-1]
 
         if len(u) > threshold:
-            return aut_dba(extend(graph_dict, plus, initial_state), minus, initial_state)
+            return aut_dba(
+                extend(graph_dict, plus, initial_state), minus, initial_state
+            )
 
         u_hat = delta(graph_dict, initial_state, u)
 
@@ -225,4 +233,3 @@ def is_accepting(graph_dict, word, initial_state):
         if graph_dict[state][0]:
             return True
     return False
-

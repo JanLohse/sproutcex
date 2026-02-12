@@ -1,14 +1,33 @@
 import heapq
 
+from graph_functions import Graph
 from omega_language_modelling import llstr
 from sprout_dba import delta
-from sprout_dba_optimized import infinity_run_optim, extend_optim, update_cache, escapes_optim
+from sprout_dba_optimized import (
+    infinity_run_optim,
+    extend_optim,
+    update_cache,
+    escapes_optim,
+)
 from sprout_wdba import aut_wdba
-from utils import Graph
 
 
-def weak_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run_cache, positive_states, negative_states,
-                          predecessors, successors, affected_words, escapes_positive, escapes_negative, node, target):
+def weak_consistent_optim(
+    graph_dict,
+    plus,
+    minus,
+    initial_state,
+    infinity_run_cache,
+    positive_states,
+    negative_states,
+    predecessors,
+    successors,
+    affected_words,
+    escapes_positive,
+    escapes_negative,
+    node,
+    target,
+):
     escapes_positive_update = {}
     escapes_negative_update = {}
     positive_states_update = positive_states.copy()
@@ -16,28 +35,40 @@ def weak_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run_c
     cache_update = {}
 
     for word in minus & affected_words:
-        success, result, state = infinity_run_optim(graph_dict, word, initial_state, infinity_run_cache)
+        success, result, state = infinity_run_optim(
+            graph_dict, word, initial_state, infinity_run_cache
+        )
         cache_update[word] = (success, result, state)
         if success:
             negative_states_update.update(result)
         else:
             exit_string = word[result:]
             escape_prefix = state + exit_string[0]
-            if escape_prefix in escapes_positive and exit_string in escapes_positive[escape_prefix]:
+            if (
+                escape_prefix in escapes_positive
+                and exit_string in escapes_positive[escape_prefix]
+            ):
                 return False, None, None, None, None, None
             escapes_negative_update.setdefault(escape_prefix, set()).add(exit_string)
 
     for word in plus & affected_words:
-        success, result, state = infinity_run_optim(graph_dict, word, initial_state, infinity_run_cache)
+        success, result, state = infinity_run_optim(
+            graph_dict, word, initial_state, infinity_run_cache
+        )
         cache_update[word] = (success, result, state)
         if success:
             positive_states_update.update(result)
         else:
             exit_string = word[result:]
             escape_prefix = state + exit_string[0]
-            if ((escape_prefix in escapes_negative and exit_string in escapes_negative[
-                escape_prefix]) or escape_prefix in escapes_negative_update and exit_string in escapes_negative_update[
-                escape_prefix]):
+            if (
+                (
+                    escape_prefix in escapes_negative
+                    and exit_string in escapes_negative[escape_prefix]
+                )
+                or escape_prefix in escapes_negative_update
+                and exit_string in escapes_negative_update[escape_prefix]
+            ):
                 return False, None, None, None, None, None
             escapes_positive_update.setdefault(escape_prefix, set()).add(exit_string)
 
@@ -49,7 +80,14 @@ def weak_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run_c
         if common & negative_states_update and common & positive_states_update:
             return False, None, None, None, None, None
 
-    return True, cache_update, positive_states_update, negative_states_update, escapes_positive_update, escapes_negative_update
+    return (
+        True,
+        cache_update,
+        positive_states_update,
+        negative_states_update,
+        escapes_positive_update,
+        escapes_negative_update,
+    )
 
 
 def sprout_wdba_optim(plus, minus, square_threshold=False):
@@ -57,7 +95,11 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
     graph_dict = Graph({initial_state: {}})
     samples = {*plus, *minus}
     if square_threshold:
-        threshold = max([len(x.prefix) for x in samples] + [0]) + max([len(x.loop) for x in samples] + [0]) ** 2 + 1
+        threshold = (
+            max([len(x.prefix) for x in samples] + [0])
+            + max([len(x.loop) for x in samples] + [0]) ** 2
+            + 1
+        )
     else:
         threshold = max([len(x) for x in samples] + [0]) * 2 - 1
     infinity_run_cache = {}
@@ -93,8 +135,12 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
             continue
 
         if len(u) > threshold:
-            return aut_wdba(extend_optim(graph_dict, plus, initial_state, infinity_run_cache), minus, initial_state,
-                            infinity_run_cache)
+            return aut_wdba(
+                extend_optim(graph_dict, plus, initial_state, infinity_run_cache),
+                minus,
+                initial_state,
+                infinity_run_cache,
+            )
 
         escapes_positive_u_hat_a = escapes_positive.pop(u_hat_a, set())
         escapes_negative_u_hat_a = escapes_negative.pop(u_hat_a, set())
@@ -103,19 +149,43 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
         for q in sorted(graph_dict):
             graph_dict[u_hat][a] = q
 
-            consistent, cache_update, positive_states_update, negative_states_update, escapes_positive_update, escapes_negative_update = weak_consistent_optim(
-                graph_dict, plus, minus, initial_state, infinity_run_cache, positive_states, negative_states,
-                predecessors, successors, affected_words, escapes_positive, escapes_negative, u_hat, q)
+            (
+                consistent,
+                cache_update,
+                positive_states_update,
+                negative_states_update,
+                escapes_positive_update,
+                escapes_negative_update,
+            ) = weak_consistent_optim(
+                graph_dict,
+                plus,
+                minus,
+                initial_state,
+                infinity_run_cache,
+                positive_states,
+                negative_states,
+                predecessors,
+                successors,
+                affected_words,
+                escapes_positive,
+                escapes_negative,
+                u_hat,
+                q,
+            )
             if consistent:
                 infinity_run_cache = cache_update
                 positive_states = positive_states_update
                 negative_states = negative_states_update
 
                 for escape_prefix, exit_strings in escapes_positive_update.items():
-                    escapes_positive.setdefault(escape_prefix, set()).update(exit_strings)
+                    escapes_positive.setdefault(escape_prefix, set()).update(
+                        exit_strings
+                    )
 
                 for escape_prefix, exit_strings in escapes_negative_update.items():
-                    escapes_negative.setdefault(escape_prefix, set()).update(exit_strings)
+                    escapes_negative.setdefault(escape_prefix, set()).update(
+                        exit_strings
+                    )
 
                 new_successors = successors[q]
                 for new_predeccessor in predecessors[u_hat]:
@@ -151,7 +221,16 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
 
             update_cache(graph_dict, affected_words, initial_state, infinity_run_cache)
 
-        escapes_optim(graph_dict, plus, minus, initial_state, infinity_run_cache, affected_words,
-                      escaping_edge_to_words, escaping, escaping_set)
+        escapes_optim(
+            graph_dict,
+            plus,
+            minus,
+            initial_state,
+            infinity_run_cache,
+            affected_words,
+            escaping_edge_to_words,
+            escaping,
+            escaping_set,
+        )
 
     return aut_wdba(graph_dict, minus, initial_state, infinity_run_cache)

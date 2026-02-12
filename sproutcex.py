@@ -1,51 +1,80 @@
 import time
+from typing import Literal
+from typing import Optional
 
-from graph_functions import get_alphabet
-from smallest_cex import smallest_cex, smallest_cex_expansion, smallest_cex_loop, smallest_cex_prefix, smallest_cex_lex
+from IPython.core.display_functions import display
+
+from graph_functions import Automaton
+from smallest_cex import (
+    smallest_cex,
+    smallest_cex_expansion,
+    smallest_cex_loop,
+    smallest_cex_prefix,
+    smallest_cex_lex,
+)
 from sprout_dba import sprout_dba
 from sprout_dba_optimized import sprout_dba_optim
 from sprout_wdba import sprout_wdba
 from sprout_wdba_optimized import sprout_wdba_optim
 
-SPROUT_METHOD_MAPPING = {"dba": sprout_dba_optim, "dba_optim": sprout_dba_optim, "dba_legacy": sprout_dba,
-                         "wdba": sprout_wdba_optim, "wdba_optim": sprout_wdba_optim, "wdba_legacy": sprout_wdba, }
+CONS_METHODS = {
+    "dba": sprout_dba_optim,
+    "dba_optim": sprout_dba_optim,
+    "dba_legacy": sprout_dba,
+    "wdba": sprout_wdba_optim,
+    "wdba_optim": sprout_wdba_optim,
+    "wdba_legacy": sprout_wdba,
+}
+
+ORDERINGS = {
+    "total": smallest_cex,
+    "loop": smallest_cex_loop,
+    "prefix": smallest_cex_prefix,
+    "lex": smallest_cex_lex,
+    "expansion": smallest_cex_expansion,
+}
+
+ConsMethod = Literal[
+    "dba", "dba_optim", "dba_legacy", "wdba", "wdba_optim", "wdba_legacy"
+]
+Ordering = Literal["total", "loop", "prefix", "lex", "expansion"]
 
 
-def sproutcex(target, method="wdba", ordering="total", verbose=False, silent=False, steps=None, square_threshold=False):
-    if method is None or not method:
-        method = "wdba"
-    assert method in SPROUT_METHOD_MAPPING.keys(), f"method must be one of 'weak', 'büchi', 'optim', got {method!r}"
-    sprout_method = SPROUT_METHOD_MAPPING[method]
+def sproutcex(
+    target: Automaton,
+    cons_method: ConsMethod = "dba",
+    ordering: Ordering = "total",
+    verbose: bool = False,
+    max_steps: Optional[int] = None,
+    square_threshold: bool = False,
+):
+    sprout_method = CONS_METHODS[cons_method]
+    cex_method = ORDERINGS[ordering]
 
-    if ordering is None or not ordering:
-        ordering = "total"
-    assert ordering in {"total", "loop", "prefix", "lex", "expansion"}
-    cex_method = \
-        {"total": smallest_cex, "loop": smallest_cex_loop, "prefix": smallest_cex_prefix, "lex": smallest_cex_lex,
-         "expansion": smallest_cex_expansion}[ordering]
-
-    alphabet = get_alphabet(target)
+    alphabet = target.get_alphabet()
     plus = set()
     minus = set()
     found = False
-    count = 0
-    build_time = 0.
-    search_time = 0.
+    query_count = 0
+    build_time = 0.0
+    search_time = 0.0
 
     while not found:
-        if steps is not None:
-            if not steps:
+        if max_steps is not None:
+            if not max_steps:
                 print(
-                    f"Aborted after {count} quer{'y' if count == 1 else 'ies'}. sprout_time={build_time:.2f}s cex_{search_time=:.2f}s")
+                    f"Aborted after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
+                )
                 return None
-            steps -= 1
+            max_steps -= 1
         start = time.time()
-        query_dict = sprout_method(plus, minus, square_threshold=square_threshold)
+        query_automaton = sprout_method(plus, minus, square_threshold=square_threshold)
         build_time += time.time() - start
         start = time.time()
-        found, cex, cex_result = cex_method(query_dict, target)
+        found, cex, cex_result = cex_method(query_automaton, target)
         search_time += time.time() - start
-        count += 1
+        query_count += 1
 
         if found:
             continue
@@ -55,23 +84,31 @@ def sproutcex(target, method="wdba", ordering="total", verbose=False, silent=Fal
         if cex_result:
             if cex in plus:
                 print(
-                    f"Failed after {count} quer{'y' if count == 1 else 'ies'}. sprout_time={build_time:.2f}s cex_{search_time=:.2f}s")
+                    f"Failed after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
+                )
                 return None
             plus.add(cex)
         else:
             if cex in minus:
                 print(
-                    f"Failed after {count} quer{'y' if count == 1 else 'ies'}. sprout_time={build_time:.2f}s cex_{search_time=:.2f}s")
+                    f"Failed after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
+                )
                 return None
             minus.add(cex)
 
         if verbose and not found and cex is not None:
-            display(query_dict)
-            print(f"Received the {'positive' if cex_result else 'negative'} counterexample {cex}.")
+            display(query_automaton)
+            print(
+                f"Received the {'positive' if cex_result else 'negative'} counterexample {cex}."
+            )
 
-    if not silent:
-        display(query_dict)
-        print(
-            f"Found after {count} quer{'y' if count == 1 else 'ies'}! The proportional baseline is {len(query_dict) ** 2 * len(alphabet)} queries (with sink state {(len(query_dict) + 1) ** 2 * len(alphabet)}). sprout_time={build_time:.2f}s cex_{search_time=:.2f}s")
+    display(query_automaton)
+    print(
+        f"Found after {query_count} quer{'y' if query_count == 1 else 'ies'}! "
+        f"The proportional reference is {len(query_automaton) ** 2 * len(alphabet)} queries. "
+        f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
+    )
 
-    return query_dict
+    return query_automaton

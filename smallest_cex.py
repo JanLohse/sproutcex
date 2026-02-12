@@ -1,39 +1,50 @@
 from collections import deque, defaultdict
 from itertools import product
 
-from graph_functions import get_alphabet
-from omega_language_modelling import omegaiter, omegaiter_prefix, omegaiter_lex, omegaiter_expansion, llstr, \
-    omegastr_loop
+from graph_functions import Automaton
+from omega_language_modelling import (
+    omegaiter,
+    omegaiter_prefix,
+    omegaiter_lex,
+    omegaiter_expansion,
+    llstr,
+    OmegastrLoop,
+)
 from sprout_dba import is_accepting
 
 
-def product_of_dba(A, B):
-    product = {}
-    stack = [(next(iter(A)), next(iter(B)))]
+def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
+    init_a = a.get_start()
+    init_b = b.get_start()
+    stack = [(init_a, init_b)]
     visited = set()
+    product_automaton = Automaton(start_node=init_a + "" + init_b)
 
     while stack:
-        sA, sB = stack.pop()
-        key = sA + '|' + sB
+        curr_a, curr_b = stack.pop()
+        key = curr_a + "|" + curr_b
         if key in visited:
             continue
         visited.add(key)
-        accA, transA = A.get(sA, (False, {}))
-        accB, transB = B.get(sB, (False, {}))
-        product[key] = [(accA, accB), {}]
-        for sym in {*transA.keys(), *transB.keys()}:
-            nextA = transA.get(sym, "sink")
-            nextB = transB.get(sym, "sink")
-            next_key = nextA + '|' + nextB
-            product[key][1][sym] = next_key
+        acc_a, trans_a = a.get(curr_a, (False, {}))
+        acc_b, trans_b = b.get(curr_b, (False, {}))
+        product_automaton[key] = [(acc_a, acc_b), {}]
+        for sym in {*trans_a.keys(), *trans_b.keys()}:
+            next_a = trans_a.get(sym, "sink")
+            next_b = trans_b.get(sym, "sink")
+            next_key = next_a + "|" + next_b
+            product_automaton[key][1][sym] = next_key
             if next_key not in visited:
-                stack.append((nextA, nextB))
-    return product
+                stack.append((next_a, next_b))
+    return product_automaton
 
 
 def find_asymmetric_sccs_rabin(automaton):
     # partition states
-    state_partition = {i: {state for state in automaton if not automaton[state][0][1 - i]} for i in (0, 1)}
+    state_partition = {
+        i: {state for state in automaton if not automaton[state][0][1 - i]}
+        for i in (0, 1)
+    }
     sccs = []
 
     for idx in (0, 1):
@@ -70,8 +81,10 @@ def find_asymmetric_sccs_rabin(automaton):
                     scc.add(w)
                     if w == state:
                         break
-                if (len(scc) > 1 or next(iter(scc)) in automaton[next(iter(scc))][1].values()) and any(
-                        [automaton[s][0][idx] for s in scc]):
+                if (
+                    len(scc) > 1
+                    or next(iter(scc)) in automaton[next(iter(scc))][1].values()
+                ) and any([automaton[s][0][idx] for s in scc]):
                     sccs.append(scc)
 
         for state in state_partition[idx]:
@@ -81,49 +94,47 @@ def find_asymmetric_sccs_rabin(automaton):
     return sccs
 
 
-def are_equivalent(A, B):
-    automaton = product_of_dba(A, B)
+def are_equivalent(a: Automaton, b: Automaton) -> bool:
+    automaton = product_of_dba(a, b)
     sccs = find_asymmetric_sccs_rabin(automaton)
 
     return not bool(sccs)
 
 
-def smallest_cex(A, B, alphabet=None, iter=omegaiter):
-    if are_equivalent(A, B):
+def smallest_cex(a: Automaton, b: Automaton, iterator=omegaiter):
+    if are_equivalent(a, b):
         return True, None, None
 
-    if alphabet is None:
-        alphabet_A = get_alphabet(A)
-        alphabet_B = get_alphabet(B)
-        alphabet = "".join(sorted(set(alphabet_A + alphabet_B)))
+    alphabet_a = a.get_alphabet()
+    alphabet_b = b.get_alphabet()
+    alphabet = "".join(sorted(set(alphabet_a + alphabet_b)))
 
-    A_init = min(A)
-    B_init = min(B)
+    a_init = a.get_start()
+    b_init = b.get_start()
 
-    for word in iter(alphabet):
-        A_result = is_accepting(A, word, A_init)
-        B_result = is_accepting(B, word, B_init)
-        if B_result and not A_result:
+    for word in iterator(alphabet):
+        a_result = is_accepting(a, word, a_init)
+        b_result = is_accepting(b, word, b_init)
+        if b_result and not a_result:
             return False, word, True
-        if A_result and not B_result:
+        if a_result and not b_result:
             return False, word, False
 
 
-def smallest_cex_prefix(A, B, alphabet=None):
-    return smallest_cex(A, B, alphabet=alphabet, iter=omegaiter_prefix)
+def smallest_cex_prefix(a: Automaton, b: Automaton):
+    return smallest_cex(a, b, iterator=omegaiter_prefix)
 
 
-def smallest_cex_lex(A, B, alphabet=None):
-    return smallest_cex(A, B, alphabet=alphabet, iter=omegaiter_lex)
+def smallest_cex_lex(a: Automaton, b: Automaton):
+    return smallest_cex(a, b, iterator=omegaiter_lex)
 
 
-def smallest_cex_expansion(A, B, alphabet=None):
-    return smallest_cex(A, B, alphabet=alphabet, iter=omegaiter_expansion)
+def smallest_cex_expansion(a: Automaton, b: Automaton):
+    return smallest_cex(a, b, iterator=omegaiter_expansion)
 
 
-def smallest_diff_loop_rabin(automaton, alphabet=None):
-    if alphabet is None:
-        alphabet = get_alphabet(automaton)
+def smallest_diff_loop_rabin(automaton: Automaton):
+    alphabet = automaton.get_alphabet()
 
     # compute accepting SCCs and all states in them
     sccs = find_asymmetric_sccs_rabin(automaton)
@@ -152,8 +163,14 @@ def smallest_diff_loop_rabin(automaton, alphabet=None):
     for a in alphabet:
         for state in scc_states:
             target = automaton[state][1].get(a)
-            marking = tuple(a or b for a, b in zip(automaton[state][0], automaton[target][0]))
-            if target in scc_states and scc_id[target] == scc_id[state] and not all(marking):
+            marking = tuple(
+                a or b for a, b in zip(automaton[state][0], automaton[target][0])
+            )
+            if (
+                target in scc_states
+                and scc_id[target] == scc_id[state]
+                and not all(marking)
+            ):
                 dp[state][a] = (target, marking)
     words_by_length = {}
     k = 0
@@ -204,12 +221,16 @@ def smallest_diff_loop_rabin(automaton, alphabet=None):
 
             # search for cycles within SCCs
             states_left = set(scc_states)
-            loop_states_A = set()
-            loop_states_B = set()
+            loop_states_a = set()
+            loop_states_b = set()
             while states_left:
                 current_state = next(iter(states_left))
                 path = set()
-                while current_state is not None and current_state in states_left and current_state not in path:
+                while (
+                    current_state is not None
+                    and current_state in states_left
+                    and current_state not in path
+                ):
                     path.add(current_state)
                     states_left.remove(current_state)
                     current_state = dp[current_state].get(current_word)
@@ -219,99 +240,108 @@ def smallest_diff_loop_rabin(automaton, alphabet=None):
                         current_state = current_state[0]
                 if current_state in path:
                     loop_path = set()
-                    found_A, found_B = False, False
-                    while current_state not in loop_path and not (found_A and found_B):
+                    found_a, found_b = False, False
+                    while current_state not in loop_path and not (found_a and found_b):
                         loop_path.add(current_state)
-                        found_A = found_A or dp[current_state][current_word][1][0]
-                        found_B = found_B or dp[current_state][current_word][1][1]
+                        found_a = found_a or dp[current_state][current_word][1][0]
+                        found_b = found_b or dp[current_state][current_word][1][1]
                         current_state = dp[current_state].get(current_word)[0]
-                    if found_A and not found_B:
-                        loop_states_A.update(loop_path)
-                    elif not found_A and found_B:
-                        loop_states_B.update(loop_path)
+                    if found_a and not found_b:
+                        loop_states_a.update(loop_path)
+                    elif not found_a and found_b:
+                        loop_states_b.update(loop_path)
 
                 states_left -= path
 
-            if loop_states_A or loop_states_B:
-                return current_word, loop_states_A, loop_states_B
+            if loop_states_a or loop_states_b:
+                return current_word, loop_states_a, loop_states_b
 
 
-def smallest_cex_loop(A, B, alphabet=None, initial_state="|"):
-    if alphabet is None:
-        alphabet_A = get_alphabet(A)
-        alphabet_B = get_alphabet(B)
-        alphabet = "".join(sorted(set(alphabet_A + alphabet_B)))
+def smallest_cex_loop(a: Automaton, b: Automaton):
+    alphabet_a = a.get_alphabet()
+    alphabet_b = b.get_alphabet()
+    alphabet = "".join(sorted(set(alphabet_a + alphabet_b)))
 
-    automaton = product_of_dba(A, B)
+    product_automaton = product_of_dba(a, b)
 
-    # find smallest loop and states from which the loop start
-    loop, start_points_A, start_points_B = smallest_diff_loop_rabin(automaton)
+    # find the smallest loop and states from which the loop starts
+    loop, start_points_a, start_points_b = smallest_diff_loop_rabin(product_automaton)
     if loop is None:
         return True, None, None
 
     # build mapping from indices of the loop to states from which an accepting run with the loop
     # starts in this state from the index
     m = len(loop)
-    index_states_A = {i: set() for i in range(m)}
-    index_states_A[0] = start_points_A
-    index_states_B = {i: set() for i in range(m)}
-    index_states_B[0] = start_points_B
+    index_states_a = {i: set() for i in range(m)}
+    index_states_a[0] = start_points_a
+    index_states_b = {i: set() for i in range(m)}
+    index_states_b[0] = start_points_b
 
     # invert edges to compute predecessors
-    reverse_mapping = {state: {a: set() for a in alphabet} for state in automaton}
-    for state in automaton:
+    reverse_mapping = {
+        state: {a: set() for a in alphabet} for state in product_automaton
+    }
+    for state in product_automaton:
         for a in alphabet:
-            target = automaton[state][1][a]
+            target = product_automaton[state][1][a]
             reverse_mapping[target][a].add(state)
 
     # trace back from the loop starting states to complete the mapping from indices
     queue = deque()
-    for state in start_points_A:
+    for state in start_points_a:
         queue.append((0, state))
     while queue:
         index, state = queue.popleft()
         index = (index - 1) % m
-        input = loop[index]
-        for predecessor in reverse_mapping[state][input]:
-            if predecessor not in index_states_A[index]:
-                index_states_A[index].add(predecessor)
+        symbol = loop[index]
+        for predecessor in reverse_mapping[state][symbol]:
+            if predecessor not in index_states_a[index]:
+                index_states_a[index].add(predecessor)
                 queue.append((index, predecessor))
 
     queue = deque()
-    for state in start_points_B:
+    for state in start_points_b:
         queue.append((0, state))
     while queue:
         index, state = queue.popleft()
         index = (index - 1) % m
-        input = loop[index]
-        for predecessor in reverse_mapping[state][input]:
-            if predecessor not in index_states_B[index]:
-                index_states_B[index].add(predecessor)
+        symbol = loop[index]
+        for predecessor in reverse_mapping[state][symbol]:
+            if predecessor not in index_states_b[index]:
+                index_states_b[index].add(predecessor)
                 queue.append((index, predecessor))
 
     # label states by shortest prefix that reaches them
     queue = deque()
-    initial_state = llstr(initial_state)
-    if initial_state not in automaton:
-        initial_state = min([llstr(x) for x in automaton])
+    initial_state = product_automaton.get_start()
+    if initial_state not in product_automaton:
+        initial_state = min([llstr(x) for x in product_automaton])
 
     queue.append(initial_state)
     state_labeling = {initial_state: llstr("")}
     while queue:
         state = queue.popleft()
         state_label = state_labeling[state]
-        for input, target in automaton[state][1].items():
-            new_label = state_label + input
+        for symbol, target in product_automaton[state][1].items():
+            new_label = state_label + symbol
             if target not in state_labeling or new_label < state_labeling[target]:
                 queue.append(target)
                 state_labeling[target] = new_label
 
-    # return state representing smallest prefix from which an accepting run
+    # return state representing the smallest prefix from which an accepting run
     # starts on the smallest cycle
-    min_A = min([state_labeling[x] for x in index_states_A[0]]) if index_states_A[0] else None
-    min_B = min([state_labeling[x] for x in index_states_B[0]]) if index_states_B[0] else None
+    min_a = (
+        min([state_labeling[x] for x in index_states_a[0]])
+        if index_states_a[0]
+        else None
+    )
+    min_b = (
+        min([state_labeling[x] for x in index_states_b[0]])
+        if index_states_b[0]
+        else None
+    )
 
-    if min_A is not None and (min_B is None or min_A < min_B):
-        return False, omegastr_loop(min_A, loop, simplify=False), False
+    if min_a is not None and (min_b is None or min_a < min_b):
+        return False, OmegastrLoop(min_a, loop, simplify=False), False
     else:
-        return False, omegastr_loop(min_B, loop, simplify=False), True
+        return False, OmegastrLoop(min_b, loop, simplify=False), True

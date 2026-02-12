@@ -1,5 +1,7 @@
+from collections.abc import Iterable
 from functools import cache
 from itertools import product
+from typing import Optional
 
 
 class llstr(str):
@@ -45,7 +47,7 @@ class llstr(str):
 
     def __add__(self, other):
         # Return a LengthLexStr instead of plain str
-        if type(other) == omegastr:  # type: ignore
+        if type(other) == Omegastr:  # type: ignore
             return NotImplemented
         return llstr(super().__add__(str(other)))
 
@@ -68,10 +70,12 @@ class llstr(str):
         return llstr(stripped)
 
 
-class omegastr:
+class Omegastr:
     """A pair of LengthLexStrs, compared lexicographically by (first, then second)."""
 
-    def __init__(self, prefix, loop, alphabet=None, simplify=True):
+    def __init__(
+        self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, simplify=True
+    ):
         # Ensure both are LengthLexStrs
         if alphabet is None:
             self.alphabet = "".join(sorted(set(prefix).union(set(loop))))
@@ -153,7 +157,7 @@ class omegastr:
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         prefix_len = len(self.prefix)
         loop_len = len(self.loop)
-        return (prefix_len + loop_len, loop_len, self.prefix + self.loop)
+        return prefix_len + loop_len, loop_len, self.prefix + self.loop
 
     def __lt__(self, other):
         if isinstance(other, self.__class__):
@@ -223,12 +227,12 @@ class omegastr:
 
     @staticmethod
     def check_prefix(omega, x):
-        return omega[:len(x)] == x
+        return omega[: len(x)] == x
 
     def subtract_prefix(self, x):
         if not self.is_prefix(x):
             raise ValueError("The string to subtract is not a prefix.")
-        return self[len(x):]
+        return self[len(x) :]
 
     def __getitem__(self, key):
         """
@@ -244,7 +248,9 @@ class omegastr:
         # --- single character ---
         if isinstance(key, int):
             if key < 0:
-                raise IndexError("Negative indexing not supported for infinite omega-word.")
+                raise IndexError(
+                    "Negative indexing not supported for infinite omega-word."
+                )
             return u[key] if key < len_u else v[(key - len_u) % len_v]
 
         # --- slice ---
@@ -262,6 +268,7 @@ class omegastr:
 
         # Finite slice → produce a finite llstr prefix
         if stop is not None:
+
             def char_at(i):
                 return u[i] if i < len_u else v[(i - len_u) % len_v]
 
@@ -290,7 +297,7 @@ class omegastr:
         return set(self.prefix) | set(self.loop)
 
 
-class omegastr_loop(omegastr):
+class OmegastrLoop(Omegastr):
     def _compare_key(self):
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         return (self.loop._compare_key(), self.prefix._compare_key())
@@ -304,14 +311,14 @@ def _omegaiter_length(alphabet, length):
     length_strings = []
     output_strings = []
     for s in product(alphabet, repeat=length):
-        s = ''.join(s)
+        s = "".join(s)
         length_strings.append(s)
-        word = omegastr(s[:-1], s[-1])
+        word = Omegastr(s[:-1], s[-1])
         if len(word) == length:
             output_strings.append(word)
     for l in range(2, length + 1):
         for s in length_strings:
-            word = omegastr(s[:length - l], s[-l:])
+            word = Omegastr(s[: length - l], s[-l:])
             if len(word) == length:
                 output_strings.append(word)
     return output_strings
@@ -324,7 +331,7 @@ def omegaiter(alphabet="ab", limit=None):
         length += 1
 
 
-class omegastr_prefix(omegastr):
+class OmegastrPrefix(Omegastr):
     def _compare_key(self):
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         prefix_len = len(self.prefix)
@@ -340,14 +347,14 @@ def _omegaiter_prefix_length(alphabet, length):
     length_strings = []
     output_strings = []
     for s in product(alphabet, repeat=length):
-        s = ''.join(s)
+        s = "".join(s)
         length_strings.append(s)
-        word = omegastr_prefix("", s)
+        word = OmegastrPrefix("", s)
         if len(word) == length:
             output_strings.append(word)
     for l in range(1, length):
         for s in length_strings:
-            word = omegastr_prefix(s[:l], s[l:])
+            word = OmegastrPrefix(s[:l], s[l:])
             if len(word) == length:
                 output_strings.append(word)
 
@@ -361,7 +368,7 @@ def omegaiter_prefix(alphabet="ab", limit=None):
         length += 1
 
 
-class omegastr_expansion(omegastr):
+class OmegastrExpansion(Omegastr):
     __slots__ = ("_key",)
 
     def _compare_key(self):
@@ -369,7 +376,7 @@ class omegastr_expansion(omegastr):
             return self._key
         except AttributeError:
             length = len(self)
-            self._key = (length, self[:2 * length])
+            self._key = (length, self[: 2 * length])
             return self._key
 
     def __repr__(self):
@@ -379,9 +386,9 @@ class omegastr_expansion(omegastr):
 @cache
 def _omegaiter_expansion_length(alphabet, length):
     length_strings = list()
-    for s in map(''.join, product(alphabet, repeat=length)):
+    for s in map("".join, product(alphabet, repeat=length)):
         for l in range(length):
-            word = omegastr_expansion(s[:l], s[l:])
+            word = OmegastrExpansion(s[:l], s[l:])
             if len(word) == length:
                 length_strings.append(word)
 
@@ -395,7 +402,7 @@ def omegaiter_expansion(alphabet="ab", limit=None):
         length += 1
 
 
-class omegastr_lex(omegastr):
+class OmegastrLex(Omegastr):
     def _compare_key(self):
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         return (self.prefix + self.loop, len(self.loop))
@@ -406,15 +413,14 @@ class omegastr_lex(omegastr):
 
 @cache
 def _omegaiter_lex_length(alphabet, length):
-    length_strings = list()
     output_strings = list()
     for s in product(alphabet, repeat=length):
-        s = ''.join(s)
+        s = "".join(s)
         for l in range(1, length):
-            word = omegastr_lex(s[:length - l], s[-l:])
+            word = OmegastrLex(s[: length - l], s[-l:])
             if len(word) == length:
                 output_strings.append(word)
-        word = omegastr_lex("", s)
+        word = OmegastrLex("", s)
         if len(word) == length:
             output_strings.append(word)
 

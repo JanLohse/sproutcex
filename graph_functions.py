@@ -1,267 +1,206 @@
 import random
-from collections import deque
+from collections import defaultdict
+from typing import Optional, Any
 
+from graphviz import Digraph
+
+from omega_language_modelling import llstr
 from utils import FastRandomBag
 
 
-def rename_states_by_prefix(automata, start=""):
-    """
-    Rename states in a DFA by the smallest prefix reaching them from the start.
+class Graph(dict[str, Any]):
+    def __init__(
+        self, struct: Optional[dict[str, dict[str, str]]] = None, start_node=None
+    ):
+        super().__init__(struct or {})
 
-    Works with arbitrary (hashable) state names (str, int, etc.).
-    """
-    if start not in automata:
-        start = next(iter(automata))
-    # Initialize BFS with (state, prefix)
-    queue = deque([(start, "")])
-    prefix_for_state = {start: ""}
+        self._start_node = start_node
 
-    while queue:
-        state, prefix = queue.popleft()
-        _, transitions = automata[state]
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        if self:
+            dot = draw_graph(self)
+            return dot._repr_mimebundle_(include=include, exclude=exclude)
+        else:
+            return dict(self)
 
-        # Explore outgoing transitions in lexicographic order
-        for symbol in sorted(transitions.keys()):
-            next_state = transitions[symbol]
-            if next_state not in prefix_for_state:
-                new_prefix = prefix + symbol
-                prefix_for_state[next_state] = new_prefix
-                queue.append((next_state, new_prefix))
+    def get_start(self):
+        if self._start_node is None and self:
+            self._start_node = min(self)
+        return self._start_node
 
-    # Build renamed DFA
-    renamed = {}
-    for old_state, prefix in prefix_for_state.items():
-        accepting, transitions = automata[old_state]
-        renamed[prefix] = [accepting, {sym: prefix_for_state[next_state] for sym, next_state in transitions.items()}]
-
-    return renamed
+    def get_alphabet(self) -> str:
+        alphabet = "".join(
+            sorted({sym for (_, trans) in self.values() for sym in trans.keys()})
+        )
+        return alphabet
 
 
-def _generate_wdba_dict(total_states, symbols, prob_acc):
+def draw_graph(graph: Graph):
+    dot = Digraph()
+    dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
+    dot.attr(
+        "node",
+        fontname="Helvetica",
+        fontsize="14",
+        height="0.25",
+        width="0.25",
+        shape="plaintext",
+    )
+    dot.attr(
+        "edge", fontname="Helvetica", fontsize="14", arrowhead="vee", arrowsize="0.66"
+    )
+
+    # Draw states
+    for state in graph:
+        sid = state if state else "ε"
+        dot.node(sid)
+
+    # Start arrow
+    start = graph.get_start()
+    dot.node("", shape="none", height="0", width="0")
+    dot.edge("", "ε" if start == "" else start)
+
+    # Merge edges
+    merged = defaultdict(list)
+    for state, transitions in graph.items():
+        for symbol, target in transitions.items():
+            src = state if state else "ε"
+            dst = target if target else "ε"
+            merged[(src, dst)].append(symbol)
+
+    for (src, dst), symbols in merged.items():
+        dot.edge(src, dst, label=", ".join(sorted(symbols)))
+
+    return dot
+
+
+class Automaton(Graph):
+    def __init__(
+        self,
+        struct: Optional[dict[str, tuple[bool, dict[str, str]]]] = None,
+        start_node=None,
+    ):
+        super().__init__(struct, start_node)
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        if self:
+            dot = draw_automaton(self)
+            return dot._repr_mimebundle_(include=include, exclude=exclude)
+        else:
+            return dict(self)
+
+
+def draw_automaton(automaton: Automaton):
+    dot = Digraph()
+    dot.attr(size="11,11")
+    if max([len(x) for x in automaton]) > 4:
+        default_shape = "box"
+        small_shape = "box"
+    else:
+        default_shape = "ellipse"
+        small_shape = "circle"
+    dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
+    dot.attr(
+        "node",
+        fontname="Helvetica",
+        fontsize="14",  # fillcolor="#fefeb2",
+        shape=default_shape,
+        height="0.35",
+        width="0.35",
+        style="rounded",
+    )  # style="rounded, filled"
+    dot.attr(
+        "edge", fontname="Helvetica", fontsize="14", arrowhead="vee", arrowsize="0.66"
+    )
+
+    # Draw states
+    for state, (is_final, transitions) in automaton.items():
+        sid = state if state else "ε"
+        dot.node(
+            sid,
+            peripheries="2" if is_final else "1",
+            shape=small_shape if len(state) <= 1 else default_shape,
+        )
+
+    # Start arrow
+    start = automaton.get_start()
+    dot.node("", shape="none", height="0", width="0")
+    dot.edge("", "ε" if start == "" else start)
+
+    # Merge edges
+    merged = defaultdict(list)
+    for state, (_, transitions) in automaton.items():
+        for symbol, target in transitions.items():
+            src = state if state else "ε"
+            dst = target if target else "ε"
+            merged[(src, dst)].append(symbol)
+
+    for (src, dst), symbols in merged.items():
+        dot.edge(src, dst, label=", ".join(sorted(symbols)))
+
+    return dot
+
+
+def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Automaton:
+    if seed is not None:
+        random.seed(seed)
     state_count = 1
     accepting_states = set()
     rejecting_states = set()
-    graph_dict = {0: [random.random() < prob_acc, {}]}
-    predecessors = {0: {0}}
-    successors = {0: {0}}
-    if graph_dict[0][0]:
-        accepting_states.add(0)
+    initial_state = llstr("")
+    initial_accepting = random.random() < prob_acc
+    automaton = Automaton(
+        {initial_state: (initial_accepting, {})},
+    )
+    if initial_accepting:
+        accepting_states.add(initial_state)
     else:
-        rejecting_states.add(0)
-    stack = FastRandomBag([(0, symbol) for symbol in symbols])
+        rejecting_states.add(initial_state)
+    predecessors = {initial_state: {initial_state}}
+    successors = {initial_state: {initial_state}}
+    stack = FastRandomBag([(initial_state, symbol) for symbol in symbols])
     while stack:
-        node, symbol = next(stack)
-        if random.random() < (total_states - state_count) / total_states:
+        state, symbol = next(stack)
+        new_state = state + symbol
+        if random.random() < (max_states - state_count) / max_states:
             accepting = random.random() < prob_acc
             if accepting:
-                accepting_states.add(state_count)
+                accepting_states.add(new_state)
             else:
-                rejecting_states.add(state_count)
-            graph_dict[state_count] = [accepting, {}]
+                rejecting_states.add(new_state)
+            automaton[new_state] = [accepting, {}]
             for sym in symbols:
-                stack.add((state_count, sym))
-            graph_dict[node][1][symbol] = state_count
-            successors[state_count] = {state_count}
-            predecessors[state_count] = predecessors[node] | {state_count}
-            for predecessor in predecessors[state_count]:
-                successors[predecessor].add(state_count)
+                stack.add((new_state, sym))
+            automaton[state][1][symbol] = new_state
+            successors[new_state] = {new_state}
+            predecessors[new_state] = predecessors[state] | {new_state}
+            for predecessor in predecessors[new_state]:
+                successors[predecessor].add(new_state)
             state_count += 1
         else:
-            targets = FastRandomBag(range(state_count))
+            targets = FastRandomBag(automaton.keys())
             found = False
             while not found:
                 target = next(targets)
                 found = True
-                if target in successors[node]:
+                if target in successors[state]:
                     break
-                elif node not in successors[target]:
+                elif state not in successors[target]:
                     break
                 else:
-                    common = successors[target] & predecessors[node]
+                    common = successors[target] & predecessors[state]
                     if common & accepting_states and common & rejecting_states:
                         found = False
                         continue
 
-            graph_dict[node][1][symbol] = target
+            automaton[state][1][symbol] = target
 
             new_successors = successors[target]
-            for new_predecessor in predecessors[node]:
+            for new_predecessor in predecessors[state]:
                 successors[new_predecessor].update(new_successors)
 
-            new_predecessors = predecessors[node]
+            new_predecessors = predecessors[state]
             for new_successor in successors[target]:
                 predecessors[new_successor].update(new_predecessors)
 
-    return graph_dict
-
-
-def _generate_dba_dict(total_states, symbols, prob_acc, new_prob) -> dict[int, list]:
-    state_count = 1
-    graph_dict = {0: [random.random() < prob_acc, {}]}
-    stack = FastRandomBag([(0, symbol) for symbol in symbols])
-    while stack:
-        node, symbol = next(stack)
-        if state_count < total_states and random.random() < new_prob:
-            graph_dict[state_count] = [random.random() < prob_acc, {}]
-            for sym in symbols:
-                stack.add((state_count, sym))
-            graph_dict[node][1][symbol] = state_count
-            state_count += 1
-        else:
-            target = random.randrange(state_count)
-            graph_dict[node][1][symbol] = target
-    return graph_dict
-
-
-def generate_graph(total_states, weak=True, symbols=None, prob_acc=0.5, new_prob=1., seed=None, rename=True):
-    if seed is not None:
-        random.seed(seed)
-    if symbols is None:
-        symbols = 'ab'
-    if weak:
-        graph_dict = _generate_wdba_dict(total_states, symbols, prob_acc)
-    else:
-        graph_dict = _generate_dba_dict(total_states, symbols, prob_acc, new_prob)
-    if rename:
-        graph_dict = rename_states_by_prefix(graph_dict)
-    return graph_dict
-
-
-def get_alphabet(graph):
-    alphabet = "".join(sorted({sym for (_, trans) in graph.values() for sym in trans.keys()}))
-    return alphabet
-
-
-def infinity_set(automaton, word, start_state=""):
-    if start_state not in automaton:
-        start_state = next(iter(automaton))
-
-    prefix = word.prefix
-    loop = word.loop
-
-    # Follow the prefix once to reach the state before the cycle starts repeating
-    current = start_state
-    for symbol in prefix:
-        current = automaton[current][1][symbol]
-
-    index = 0
-    sequence = []
-    index_map = {}
-    while True:
-        symbol = loop[index]
-        current = automaton[current][1][symbol]
-        sequence.append(current)
-        if (current, index) in index_map:
-            return set(sequence[index_map[(current, index)]:])
-        index_map[(current, index)] = len(sequence)
-        index = (index + 1) % len(loop)
-
-
-def infinity_set_robust(automaton, word, start_state=""):
-    if start_state not in automaton:
-        start_state = next(iter(automaton))
-
-    prefix = word.prefix
-    loop = word.loop
-
-    # Follow the prefix once to reach the state before the cycle starts repeating
-    current = start_state
-    for symbol in prefix:
-        if symbol in automaton[current][1]:
-            current = automaton[current][1][symbol]
-        else:
-            return None
-
-    index = 0
-    sequence = []
-    index_map = {}
-    while True:
-        symbol = loop[index]
-        if symbol in automaton[current][1]:
-            current = automaton[current][1][symbol]
-        else:
-            return None
-        sequence.append(current)
-        if (current, index) in index_map:
-            return set(sequence[index_map[(current, index)]:])
-        index_map[(current, index)] = len(sequence)
-        index = (index + 1) % len(loop)
-
-
-def _is_accepting(automaton, word, start_state=""):
-    # TODO: remove
-    state_set = infinity_set(automaton, word, start_state)
-
-    for state in state_set:
-        if automaton[state][0]:
-            return True
-    return False
-
-
-def strongly_connected_components(automaton, nontrivial=True):
-    """
-    Compute all strongly connected components (SCCs) of a deterministic Büchi automaton.
-
-    Args:
-        automaton: dict of the form {state: [is_accepting, {symbol: next_state, ...}]}
-
-    Returns:
-        A list of SCCs, where each SCC is a set of states.
-    """
-    index = 0
-    stack = []
-    indices = {}
-    lowlinks = {}
-    on_stack = set()
-    sccs = []
-
-    def strongconnect(state):
-        nonlocal index
-        indices[state] = index
-        lowlinks[state] = index
-        index += 1
-        stack.append(state)
-        on_stack.add(state)
-
-        # Explore all successors
-        for _, next_state in automaton[state][1].items():
-            if next_state not in indices:
-                strongconnect(next_state)
-                lowlinks[state] = min(lowlinks[state], lowlinks[next_state])
-            elif next_state in on_stack:
-                lowlinks[state] = min(lowlinks[state], indices[next_state])
-
-        # If state is a root node, pop the stack and generate an SCC
-        if lowlinks[state] == indices[state]:
-            scc = set()
-            while True:
-                w = stack.pop()
-                on_stack.remove(w)
-                scc.add(w)
-                if w == state:
-                    break
-            sccs.append(scc)
-
-    # Run Tarjan's algorithm for all unvisited states
-    for state in automaton:
-        if state not in indices:
-            strongconnect(state)
-
-    if nontrivial:
-        return [scc for scc in sccs if len(scc) > 1]
-    else:
-        return sccs
-
-
-def check_weak(graph):
-    sccs = strongly_connected_components(graph)
-    for scc in sccs:
-        found_positive, found_negative = False, False
-        for state in scc:
-            if graph[state][0]:
-                found_positive = True
-            else:
-                found_negative = True
-            if found_positive and found_negative:
-                return False
-    return True
+    return automaton
