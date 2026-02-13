@@ -47,7 +47,21 @@ def sproutcex(
     verbose: bool = False,
     max_steps: Optional[int] = None,
     square_threshold: bool = False,
-):
+) -> Optional[Automaton]:
+    """
+    Attempts to learn an automaton from smallest counterexamples.
+
+    Args:
+        target: Automaton that is to be learned.
+        cons_method: The passive learner to use for constructing automata.
+        ordering: How to order the automaton.
+        verbose: Whether to display every the automaton in every step.
+        max_steps: How many steps before aborting.
+        square_threshold: Whether to use the original square threshold for Sprout.
+
+    Returns:
+        An automaton equivalent to the target, if one is found.
+    """
     sprout_method = CONS_METHODS[cons_method]
     cex_method = ORDERINGS[ordering]
 
@@ -69,17 +83,17 @@ def sproutcex(
                 return None
             max_steps -= 1
         start = time.time()
-        query_automaton = sprout_method(plus, minus, square_threshold=square_threshold)
+        automaton = sprout_method(plus, minus, square_threshold=square_threshold)
         build_time += time.time() - start
         start = time.time()
-        found, cex, cex_result = cex_method(query_automaton, target)
+        found, cex, cex_result = cex_method(automaton, target)
         search_time += time.time() - start
         query_count += 1
 
         if found:
             continue
 
-        cex.simplify()
+        cex.reduce()
 
         if cex_result:
             if cex in plus:
@@ -99,16 +113,16 @@ def sproutcex(
             minus.add(cex)
 
         if verbose and not found and cex is not None:
-            display(query_automaton)
+            display(automaton)
             print(
                 f"Received the {'positive' if cex_result else 'negative'} counterexample {cex}."
             )
 
-    display(query_automaton)
+    display(automaton)
     print(
         f"Found after {query_count} quer{'y' if query_count == 1 else 'ies'}! "
-        f"The proportional reference is {len(query_automaton) ** 2 * len(alphabet)} queries. "
+        f"The proportional reference is {len(automaton) ** 2 * len(alphabet)} queries. "
         f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
     )
 
-    return query_automaton
+    return automaton

@@ -9,11 +9,16 @@ from omega_language_modelling import (
     omegaiter_expansion,
     llstr,
     OmegastrLoop,
+    Omegastr,
+    OmegastrPrefix,
+    OmegastrLex,
+    OmegastrExpansion,
 )
 from sprout_dba import is_accepting
 
 
 def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
+    """Computes the product automaton of two automata."""
     init_a = a.get_start()
     init_b = b.get_start()
     stack = [(init_a, init_b)]
@@ -21,6 +26,7 @@ def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
     product_automaton = Automaton(start_node=init_a + "" + init_b)
 
     while stack:
+        # Add a missing product state.
         curr_a, curr_b = stack.pop()
         key = curr_a + "|" + curr_b
         if key in visited:
@@ -29,17 +35,21 @@ def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
         acc_a, trans_a = a.get(curr_a, (False, {}))
         acc_b, trans_b = b.get(curr_b, (False, {}))
         product_automaton[key] = [(acc_a, acc_b), {}]
+
         for sym in {*trans_a.keys(), *trans_b.keys()}:
+            # Add all outgoing edges from the new product state.
             next_a = trans_a.get(sym, "sink")
             next_b = trans_b.get(sym, "sink")
             next_key = next_a + "|" + next_b
             product_automaton[key][1][sym] = next_key
             if next_key not in visited:
                 stack.append((next_a, next_b))
+
     return product_automaton
 
 
-def find_asymmetric_sccs_rabin(automaton):
+def find_asymmetric_sccs_product_automaton(automaton):
+    """Find SCCs in a product automaton that has a run rejected by one and accepted by the other automaton."""
     # partition states
     state_partition = {
         i: {state for state in automaton if not automaton[state][0][1 - i]}
@@ -62,7 +72,7 @@ def find_asymmetric_sccs_rabin(automaton):
             stack.append(state)
             on_stack.add(state)
 
-            # Explore all successors
+            # Explore all successors.
             for _, next_state in automaton[state][1].items():
                 if next_state not in state_partition[idx]:
                     continue
@@ -72,7 +82,7 @@ def find_asymmetric_sccs_rabin(automaton):
                 elif next_state in on_stack:
                     lowlinks[state] = min(lowlinks[state], indices[next_state])
 
-            # If state is a root node, pop the stack and generate an SCC
+            # If state is a root node, pop the stack and generate an SCC.
             if lowlinks[state] == indices[state]:
                 scc = set()
                 while True:
@@ -94,56 +104,125 @@ def find_asymmetric_sccs_rabin(automaton):
     return sccs
 
 
-def are_equivalent(a: Automaton, b: Automaton) -> bool:
+def are_dba_equivalent(a: Automaton, b: Automaton) -> bool:
+    """Tests whether two deterministic Büchi automata represent the same language."""
     automaton = product_of_dba(a, b)
-    sccs = find_asymmetric_sccs_rabin(automaton)
+    sccs = find_asymmetric_sccs_product_automaton(automaton)
 
     return not bool(sccs)
 
 
-def smallest_cex(a: Automaton, b: Automaton, iterator=omegaiter):
-    if are_equivalent(a, b):
+def smallest_cex(
+    a: Automaton, b: Automaton, iterator=omegaiter
+) -> tuple[bool, Omegastr | None, bool | None]:
+    """
+    Test for equivalence of two DBA and returns smallest counterexample if they are not.
+
+    Args:
+        a: Deterministic Büchi automaton..
+        b: Deterministic Büchi automaton.
+        iterator: Iterator for Omegastr to specify in what order to test UP words.
+
+    Returns:
+        tuple[bool, Omegastr | None, bool | None]: A tuple containing:
+            - equivalent (bool): True if the automata are equivalent.
+            - counterexample (Omegastr | None): The smallest counterexample,
+              or None if equivalent.
+            - positive (bool | None): True if the counterexample is positive.
+    """
+    # Test for equivalence.
+    if are_dba_equivalent(a, b):
         return True, None, None
 
+    # Get combined alphabet and start states.
     alphabet_a = a.get_alphabet()
     alphabet_b = b.get_alphabet()
     alphabet = "".join(sorted(set(alphabet_a + alphabet_b)))
 
-    a_init = a.get_start()
-    b_init = b.get_start()
-
+    # Test words one by one if they are in the symmetric difference.
     for word in iterator(alphabet):
-        a_result = is_accepting(a, word, a_init)
-        b_result = is_accepting(b, word, b_init)
+        a_result = is_accepting(a, word)
+        b_result = is_accepting(b, word)
         if b_result and not a_result:
             return False, word, True
         if a_result and not b_result:
             return False, word, False
 
 
-def smallest_cex_prefix(a: Automaton, b: Automaton):
+def smallest_cex_prefix(
+    a: Automaton, b: Automaton
+) -> tuple[bool, OmegastrPrefix | None, bool | None]:
+    """
+    Test for equivalence of two DBA and returns smallest by prefix counterexample if they are not.
+
+    Args:
+        a: Deterministic Büchi automaton.
+        b: Deterministic Büchi automaton.
+
+    Returns:
+        tuple[bool, OmegastrPrefix | None, bool | None]: A tuple containing:
+            - equivalent (bool): True if the automata are equivalent.
+            - counterexample (OmegastrPrefix | None): The smallest counterexample,
+              or None if equivalent.
+            - positive (bool | None): True if the counterexample is positive.
+    """
     return smallest_cex(a, b, iterator=omegaiter_prefix)
 
 
-def smallest_cex_lex(a: Automaton, b: Automaton):
+def smallest_cex_lex(
+    a: Automaton, b: Automaton
+) -> tuple[bool, OmegastrLex | None, bool | None]:
+    """
+    Test for equivalence of two DBA and returns smallest by representation counterexample if they are not.
+
+    Args:
+        a: Deterministic Büchi automaton.
+        b: Deterministic Büchi automaton.
+
+    Returns:
+        tuple[bool, OmegastrLex | None, bool | None]: A tuple containing:
+            - equivalent (bool): True if the automata are equivalent.
+            - counterexample (OmegastrLex | None): The smallest counterexample,
+              or None if equivalent.
+            - positive (bool | None): True if the counterexample is positive.
+    """
     return smallest_cex(a, b, iterator=omegaiter_lex)
 
 
-def smallest_cex_expansion(a: Automaton, b: Automaton):
+def smallest_cex_expansion(
+    a: Automaton, b: Automaton
+) -> tuple[bool, OmegastrExpansion | None, bool | None]:
+    """
+    Test for equivalence of two DBA and returns smallest by omega-expansion counterexample if they are not.
+
+    Args:
+        a: Deterministic Büchi automaton.
+        b: Deterministic Büchi automaton.
+
+    Returns:
+        tuple[bool, OmegastrExpansion | None, bool | None]: A tuple containing:
+            - equivalent (bool): True if the automata are equivalent.
+            - counterexample (OmegastrExpansion | None): The smallest counterexample,
+              or None if equivalent.
+            - positive (bool | None): True if the counterexample is positive.
+    """
     return smallest_cex(a, b, iterator=omegaiter_expansion)
 
 
-def smallest_diff_loop_rabin(automaton: Automaton):
+def smallest_diff_loop_product_automaton(
+    automaton: Automaton,
+) -> tuple[OmegastrLoop, set[str], set[str]] | tuple[None, None, None]:
+    """Compute smallest loop rejected by one and accepted by the other automaton of a product automaton."""
     alphabet = automaton.get_alphabet()
 
-    # compute accepting SCCs and all states in them
-    sccs = find_asymmetric_sccs_rabin(automaton)
+    # Compute SCCs with disagreeing loops and all states in them.
+    sccs = find_asymmetric_sccs_product_automaton(automaton)
 
     scc_states = set().union(*sccs)
     if not scc_states:
         return None, None, None
 
-    # map each state to its SCC
+    # Map each state to its SCC.
     sccs = {i: scc for i, scc in enumerate(sccs)}
     scc_id = {}
     for i, scc in sccs.items():
@@ -154,7 +233,7 @@ def smallest_diff_loop_rabin(automaton: Automaton):
             else:
                 scc_id[state] = i
 
-    # init dp and word_list
+    # Init dp (dynamic programming storage) and words_by_length.
     dp = defaultdict(dict)
     for state in scc_states:
         if not all(automaton[state][0]):
@@ -176,7 +255,7 @@ def smallest_diff_loop_rabin(automaton: Automaton):
     k = 0
 
     while True:
-        # compute all lyndon words of length k
+        # Compute all Lyndon words of length k.
         k += 1
         new_words = set()
         decompositions = {}
@@ -215,11 +294,11 @@ def smallest_diff_loop_rabin(automaton: Automaton):
                     if marking[0] != marking[1]:
                         accepting_transition = True
 
-            # only check if any accepting transitions
+            # Only check if any accepting transitions.
             if not accepting_transition:
                 continue
 
-            # search for cycles within SCCs
+            # Search for cycles within SCCs.
             states_left = set(scc_states)
             loop_states_a = set()
             loop_states_b = set()
@@ -257,27 +336,45 @@ def smallest_diff_loop_rabin(automaton: Automaton):
                 return current_word, loop_states_a, loop_states_b
 
 
-def smallest_cex_loop(a: Automaton, b: Automaton):
+def smallest_cex_loop(
+    a: Automaton, b: Automaton
+) -> tuple[bool, OmegastrLoop | None, bool | None]:
+    """
+    Test for equivalence of two DBA and returns smallest by loop ordering counterexample if they are not.
+
+    Args:
+        a: Deterministic Büchi automaton.
+        b: Deterministic Büchi automaton.
+
+    Returns:
+        tuple[bool, OmegastrLoop | None, bool | None]: A tuple containing:
+            - equivalent (bool): True if the automata are equivalent.
+            - counterexample (OmegastrLoop | None): The smallest counterexample,
+              or None if equivalent.
+            - positive (bool | None): True if the counterexample is positive.
+    """
     alphabet_a = a.get_alphabet()
     alphabet_b = b.get_alphabet()
     alphabet = "".join(sorted(set(alphabet_a + alphabet_b)))
 
     product_automaton = product_of_dba(a, b)
 
-    # find the smallest loop and states from which the loop starts
-    loop, start_points_a, start_points_b = smallest_diff_loop_rabin(product_automaton)
+    # Find the smallest loop and states from which the loop starts.
+    loop, start_points_a, start_points_b = smallest_diff_loop_product_automaton(
+        product_automaton
+    )
     if loop is None:
         return True, None, None
 
-    # build mapping from indices of the loop to states from which an accepting run with the loop
-    # starts in this state from the index
+    # Build mapping from indices of the loop to states from which an accepting run with the loop
+    # starts in this state from the index.
     m = len(loop)
     index_states_a = {i: set() for i in range(m)}
     index_states_a[0] = start_points_a
     index_states_b = {i: set() for i in range(m)}
     index_states_b[0] = start_points_b
 
-    # invert edges to compute predecessors
+    # Invert edges to compute predecessors.
     reverse_mapping = {
         state: {a: set() for a in alphabet} for state in product_automaton
     }
@@ -286,7 +383,7 @@ def smallest_cex_loop(a: Automaton, b: Automaton):
             target = product_automaton[state][1][a]
             reverse_mapping[target][a].add(state)
 
-    # trace back from the loop starting states to complete the mapping from indices
+    # Trace back from the loop starting states to complete the mapping from indices.
     queue = deque()
     for state in start_points_a:
         queue.append((0, state))
@@ -311,7 +408,7 @@ def smallest_cex_loop(a: Automaton, b: Automaton):
                 index_states_b[index].add(predecessor)
                 queue.append((index, predecessor))
 
-    # label states by shortest prefix that reaches them
+    # Label states by shortest prefix that reaches them.
     queue = deque()
     initial_state = product_automaton.get_start()
     if initial_state not in product_automaton:
@@ -328,8 +425,8 @@ def smallest_cex_loop(a: Automaton, b: Automaton):
                 queue.append(target)
                 state_labeling[target] = new_label
 
-    # return state representing the smallest prefix from which an accepting run
-    # starts on the smallest cycle
+    # Return state representing the smallest prefix from which an accepting run
+    # starts on the smallest cycle.
     min_a = (
         min([state_labeling[x] for x in index_states_a[0]])
         if index_states_a[0]
@@ -342,6 +439,6 @@ def smallest_cex_loop(a: Automaton, b: Automaton):
     )
 
     if min_a is not None and (min_b is None or min_a < min_b):
-        return False, OmegastrLoop(min_a, loop, simplify=False), False
+        return False, OmegastrLoop(min_a, loop, reduce=False), False
     else:
-        return False, OmegastrLoop(min_b, loop, simplify=False), True
+        return False, OmegastrLoop(min_b, loop, reduce=False), True

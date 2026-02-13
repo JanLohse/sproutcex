@@ -1,8 +1,8 @@
 import heapq
 
 from graph_functions import Graph
-from omega_language_modelling import llstr
-from sprout_dba import delta
+from omega_language_modelling import llstr, Omegastr
+from sprout_dba import delta_star
 from sprout_dba_optimized import (
     infinity_run_optim,
     extend_optim,
@@ -12,22 +12,22 @@ from sprout_dba_optimized import (
 from sprout_wdba import aut_wdba
 
 
-def weak_consistent_optim(
-    graph_dict,
-    plus,
-    minus,
-    initial_state,
-    infinity_run_cache,
-    positive_states,
-    negative_states,
-    predecessors,
-    successors,
-    affected_words,
-    escapes_positive,
-    escapes_negative,
-    node,
-    target,
+def wdba_consistent_optim(
+    graph: Graph,
+    plus: set[Omegastr],
+    minus: set[Omegastr],
+    infinity_run_cache: dict,
+    positive_states: set[str],
+    negative_states: set[str],
+    predecessors: dict[str, set[str]],
+    successors: dict[str, set[str]],
+    affected_words: set[str],
+    escapes_positive: dict[str, set[Omegastr]],
+    escapes_negative: dict[str, set[Omegastr]],
+    node: str,
+    target: str,
 ):
+    """Checks if graph is weakly Büchi consistent with sample."""
     escapes_positive_update = {}
     escapes_negative_update = {}
     positive_states_update = positive_states.copy()
@@ -35,9 +35,7 @@ def weak_consistent_optim(
     cache_update = {}
 
     for word in minus & affected_words:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             negative_states_update.update(result)
@@ -52,9 +50,7 @@ def weak_consistent_optim(
             escapes_negative_update.setdefault(escape_prefix, set()).add(exit_string)
 
     for word in plus & affected_words:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             positive_states_update.update(result)
@@ -91,6 +87,21 @@ def weak_consistent_optim(
 
 
 def sprout_wdba_optim(plus, minus, square_threshold=False):
+    """
+    Computes a weak deterministic Büchi automaton consistent with the sample, if possible.
+    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+    Employs a cache to compute runs faster and stores predecessors and successors
+    to check for weakness faster.
+
+    Args:
+        plus: Words that are to be accepted.
+        minus: Words that are to be rejected.
+        square_threshold: Should the original square threshold from Sprout be used?
+
+    Returns:
+        The resulting automaton.
+    """
     initial_state = llstr("")
     graph_dict = Graph({initial_state: {}})
     samples = {*plus, *minus}
@@ -127,7 +138,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
         u = ua[:-1]
         a = ua[-1]
 
-        u_hat = delta(graph_dict, initial_state, u)
+        u_hat = delta_star(graph_dict, initial_state, u)
         u_hat_a = u_hat + a
         try:
             affected_words = escaping_edge_to_words.pop(u_hat_a)
@@ -136,9 +147,8 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
 
         if len(u) > threshold:
             return aut_wdba(
-                extend_optim(graph_dict, plus, initial_state, infinity_run_cache),
+                extend_optim(graph_dict, plus, infinity_run_cache),
                 minus,
-                initial_state,
                 infinity_run_cache,
             )
 
@@ -156,11 +166,10 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
                 negative_states_update,
                 escapes_positive_update,
                 escapes_negative_update,
-            ) = weak_consistent_optim(
+            ) = wdba_consistent_optim(
                 graph_dict,
                 plus,
                 minus,
-                initial_state,
                 infinity_run_cache,
                 positive_states,
                 negative_states,
@@ -219,13 +228,12 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
             for word in escapes_negative_u_hat_a:
                 escapes_negative.setdefault(u_hat_a + word[1], set()).add(word[1:])
 
-            update_cache(graph_dict, affected_words, initial_state, infinity_run_cache)
+            update_cache(graph_dict, affected_words, infinity_run_cache)
 
         escapes_optim(
             graph_dict,
             plus,
             minus,
-            initial_state,
             infinity_run_cache,
             affected_words,
             escaping_edge_to_words,
@@ -233,4 +241,4 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
             escaping_set,
         )
 
-    return aut_wdba(graph_dict, minus, initial_state, infinity_run_cache)
+    return aut_wdba(graph_dict, minus, infinity_run_cache)

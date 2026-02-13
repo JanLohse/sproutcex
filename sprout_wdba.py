@@ -1,8 +1,8 @@
 import heapq
 
 from graph_functions import Automaton, Graph
-from omega_language_modelling import llstr
-from sprout_dba import delta
+from omega_language_modelling import llstr, Omegastr
+from sprout_dba import delta_star
 from sprout_dba_optimized import (
     infinity_run_optim,
     infinity_set_optim,
@@ -12,7 +12,8 @@ from sprout_dba_optimized import (
 )
 
 
-def compute_sccs(graph_dict):
+def compute_sccs(graph: Graph) -> tuple[dict[str, int], dict[int, set]]:
+    """Computes the sccs in the given graph."""
     index = 0
     stack = []
     indices = {}
@@ -32,7 +33,7 @@ def compute_sccs(graph_dict):
         on_stack.add(state)
 
         # Explore all successors
-        for _, next_state in graph_dict[state].items():
+        for _, next_state in graph[state].items():
             if next_state not in indices:
                 strongconnect(next_state)
                 lowlinks[state] = min(lowlinks[state], lowlinks[next_state])
@@ -53,24 +54,25 @@ def compute_sccs(graph_dict):
             scc_index += 1
 
     # Run Tarjan's algorithm for all unvisited states
-    for state in graph_dict:
+    for state in graph:
         if state not in indices:
             strongconnect(state)
 
     return state_to_scc, scc_to_states
 
 
-def wdba_consistent(graph_dict, plus, minus, initial_state, infinity_run_cache):
+def wdba_consistent(
+    graph: Graph, plus: set[Omegastr], minus: set[Omegastr], infinity_run_cache: dict
+) -> tuple[bool, None | dict]:
+    """Checks if graph is weakly Büchi consistent with sample."""
     escapes_negative = {}
     negative_sccs = set()
     cache_update = {}
 
-    state_to_scc, _ = compute_sccs(graph_dict)
+    state_to_scc, _ = compute_sccs(graph)
 
     for word in minus:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             negative_sccs.add(state_to_scc[next(iter(result))])
@@ -78,9 +80,7 @@ def wdba_consistent(graph_dict, plus, minus, initial_state, infinity_run_cache):
             escapes_negative.setdefault(state, set()).add(word[result:])
 
     for word in plus:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             scc_id = state_to_scc[next(iter(result))]
@@ -92,33 +92,49 @@ def wdba_consistent(graph_dict, plus, minus, initial_state, infinity_run_cache):
     return True, cache_update
 
 
-def wdba_marking(graph_dict, minus, initial_state, infinity_run_cache):
+def wdba_marking(
+    graph: Graph, minus: set[Omegastr], infinity_run_cache: dict
+) -> set[str]:
+    """Computes the accepting states to produce a weak Büchi marking rejecting negative words."""
     negative_states = set()
-    state_to_scc, scc_to_states = compute_sccs(graph_dict)
+    state_to_scc, scc_to_states = compute_sccs(graph)
 
     for word in minus:
-        state_set = infinity_set_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        state_set = infinity_set_optim(graph, word, infinity_run_cache)
         if state_set is not None:
             negative_states |= scc_to_states[state_to_scc[next(iter(state_set))]]
 
-    return set(graph_dict) - negative_states
+    return set(graph) - negative_states
 
 
-def aut_wdba(graph_dict, minus, initial_state, infinity_run_cache):
-    accepting_states = wdba_marking(
-        graph_dict, minus, initial_state, infinity_run_cache
-    )
-    for state, edges in graph_dict.items():
-        graph_dict[state] = [state in accepting_states, edges]
+def aut_wdba(graph: Graph, minus: set[Omegastr], infinity_run_cache: dict) -> Automaton:
+    """Turns graph into a weak deterministic Büchi Automaton that rejects negative words."""
+    accepting_states = wdba_marking(graph, minus, infinity_run_cache)
+    for state, edges in graph.items():
+        graph[state] = [state in accepting_states, edges]
 
-    return Automaton(graph_dict)
+    return Automaton(graph)
 
 
-def sprout_wdba(plus, minus, square_threshold=False):
+def sprout_wdba(
+    plus: set[Omegastr], minus: set[Omegastr], square_threshold=False
+) -> Automaton:
+    """
+    Computes a weak deterministic Büchi automaton consistent with the sample, if possible.
+    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+    Employs a cache to compute runs faster.
+
+    Args:
+        plus: Words that are to be accepted.
+        minus: Words that are to be rejected.
+        square_threshold: Should the original square threshold from Sprout be used?
+
+    Returns:
+        The resulting automaton.
+    """
     initial_state = llstr("")
-    graph_dict = Graph({initial_state: {}})
+    graph = Graph({initial_state: {}})
     samples = {*plus, *minus}
     if square_threshold:
         threshold = (
@@ -143,7 +159,7 @@ def sprout_wdba(plus, minus, square_threshold=False):
         u = ua[:-1]
         a = ua[-1]
 
-        u_hat = delta(graph_dict, initial_state, u)
+        u_hat = delta_star(graph, initial_state, u)
         u_hat_a = u_hat + a
         try:
             affected_words = escaping_edge_to_words.pop(u_hat_a)
@@ -152,18 +168,17 @@ def sprout_wdba(plus, minus, square_threshold=False):
 
         if len(u) > threshold:
             return aut_wdba(
-                extend_optim(graph_dict, plus, initial_state, infinity_run_cache),
+                extend_optim(graph, plus, infinity_run_cache),
                 minus,
-                initial_state,
                 infinity_run_cache,
             )
 
         found_edge = False
-        for q in sorted(graph_dict):
-            graph_dict[u_hat][a] = q
+        for q in sorted(graph):
+            graph[u_hat][a] = q
 
             consistent, cache_update = wdba_consistent(
-                graph_dict, plus, minus, initial_state, infinity_run_cache
+                graph, plus, minus, infinity_run_cache
             )
             if consistent:
                 infinity_run_cache = cache_update
@@ -171,15 +186,14 @@ def sprout_wdba(plus, minus, square_threshold=False):
                 break
 
         if not found_edge:
-            graph_dict[u_hat_a] = {}
-            graph_dict[u_hat][a] = u_hat_a
-            update_cache(graph_dict, affected_words, initial_state, infinity_run_cache)
+            graph[u_hat_a] = {}
+            graph[u_hat][a] = u_hat_a
+            update_cache(graph, affected_words, infinity_run_cache)
 
         escapes_optim(
-            graph_dict,
+            graph,
             plus,
             minus,
-            initial_state,
             infinity_run_cache,
             affected_words,
             escaping_edge_to_words,
@@ -187,4 +201,4 @@ def sprout_wdba(plus, minus, square_threshold=False):
             escaping_set,
         )
 
-    return aut_wdba(graph_dict, minus, initial_state, infinity_run_cache)
+    return aut_wdba(graph, minus, infinity_run_cache)

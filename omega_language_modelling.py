@@ -5,78 +5,87 @@ from typing import Optional
 
 
 class llstr(str):
-    """A string class that compares by length, then lexicographically."""
+    """A string subclass that compares by length first, then lexicographically."""
 
     def __new__(cls, value):
-        # Ensure we actually create a string subclass properly
+        """Create a new llstr instance from a string value."""
         return super().__new__(cls, value)
 
     def _compare_key(self):
-        # Return a tuple key for comparison: (length, string)
+        """Return a tuple used for comparison: (length, string)."""
         return len(self), str(self)
 
     def __lt__(self, other):
+        """Compare self < other using length-lexicographic order."""
         if isinstance(other, str):
             return self._compare_key() < llstr(other)._compare_key()
         return NotImplemented
 
     def __le__(self, other):
+        """Compare self <= other using length-lexicographic order."""
         if isinstance(other, str):
             return self._compare_key() <= llstr(other)._compare_key()
         return NotImplemented
 
     def __gt__(self, other):
+        """Compare self > other using length-lexicographic order."""
         if isinstance(other, str):
             return self._compare_key() > llstr(other)._compare_key()
         return NotImplemented
 
     def __ge__(self, other):
+        """Compare self >= other using length-lexicographic order."""
         if isinstance(other, str):
             return self._compare_key() >= llstr(other)._compare_key()
         return NotImplemented
 
     def __eq__(self, other):
+        """Compare self == other."""
         if isinstance(other, str):
             return self._compare_key() == llstr(other)._compare_key()
         return NotImplemented
 
     def __ne__(self, other):
+        """Compare self != other using."""
         if isinstance(other, str):
             return self._compare_key() != llstr(other)._compare_key()
         return NotImplemented
 
     def __add__(self, other):
-        # Return a LengthLexStr instead of plain str
+        """Return a llstr when concatenating with another string."""
         if type(other) == Omegastr:  # type: ignore
             return NotImplemented
         return llstr(super().__add__(str(other)))
 
     def __radd__(self, other):
-        # Handles str + LengthLexStr
+        """Return a llstr when a string is added to this llstr."""
         return llstr(str(other) + str(self))
 
     def __hash__(self):
+        """Compute the hash based on the string value."""
         return hash(str(self))
 
     def __getitem__(self, key):
-        """Return a llstr for slices and single-character access."""
+        """Return a llstr for slices or single-character access."""
         result = super().__getitem__(key)
         if isinstance(result, str):
             return llstr(result)
         return result
 
-    def rstrip(self, chars=None):
+    def rstrip(self, chars: Optional = None):
+        """Return a llstr with trailing white space removed."""
         stripped = super().rstrip(chars)
         return llstr(stripped)
 
 
 class Omegastr:
-    """A pair of LengthLexStrs, compared lexicographically by (first, then second)."""
+    """An ultimately periodic word sorted by length of representation, length of loop, then lexicographically."""
 
     def __init__(
-        self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, simplify=True
+        self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, reduce=True
     ):
-        # Ensure both are LengthLexStrs
+        """Creates a new UP word from its prefix and loop."""
+        # Make prefix and loop llstr for comparison purposes.
         if alphabet is None:
             self.alphabet = "".join(sorted(set(prefix).union(set(loop))))
         else:
@@ -87,31 +96,33 @@ class Omegastr:
             loop = llstr(loop)
         self.prefix = prefix
         self.loop = loop
-        if simplify:
-            self.simplify()
 
-    def _simplify(self):
-        prefix, loop = self.prefix, self.loop
+        # Reduce prefix and loop if asked for.
+        if reduce:
+            self.reduce()
 
+    @staticmethod
+    def _reduce(prefix, loop):
+        """Reduces a prefix loop pair to the reduced UP word."""
         m = len(loop)
-        # count how many trailing chars in prefix can be removed
-        # matching loop's trailing char under successive right-rotations
+        # Count how many trailing chars in prefix can be removed,
+        # matching loop's trailing char under successive right-rotations.
         i = 0
         lp = len(prefix)
         while i < lp:
-            # compare prefix[-1 - i] with loop[(-1 - i) % m]
+            # Compare prefix[-1 - i] with loop[(-1 - i) % m].
             if prefix[-1 - i] != loop[(-1 - i) % m]:
                 break
             i += 1
 
         if i:
             prefix = prefix[:-i]
-            # rotating loop right by i is equivalent to taking i mod m
+            # Rotating loop right by i is equivalent to taking i mod m.
             k = i % m
             if k:
                 loop = loop[-k:] + loop[:-k]  # if k == 0, loop remains unchanged
 
-        # reduce loop to its smallest period (if any)
+        # Reduce loop to its smallest period (if any).
         if loop:
             doubled = loop + loop
             idx = doubled.find(loop, 1)
@@ -120,76 +131,59 @@ class Omegastr:
 
         return prefix, loop
 
-    def simplify(self):
-        self.prefix, self.loop = self._simplify()
+    def reduce(self):
+        """Reduces the representation of the UP word inplace."""
+        self.prefix, self.loop = self._reduce(self.prefix, self.loop)
 
-    def simplified(self):
-        prefix, loop = self._simplify()
-        return self.__class__(prefix, loop, self.alphabet, False)
-
-    @staticmethod
-    def _minimize(prefix, loop):
-        m = len(loop)
-
-        best_loop = loop
-        best_k = 0
-
-        for k in range(1, m):
-            rot = loop[-k:] + loop[:-k]
-            best_k = k
-
-            if rot < best_loop:
-                best_loop = rot
-                best_k = k
-
-        best_prefix = prefix + loop[:-best_k]
-
-        return best_prefix, best_loop
-
-    def minimize(self):
-        self.prefix, self.loop = self._minimize(self.prefix, self.loop)
-
-    def minimized(self):
-        prefix, loop = self._minimize(self.prefix, self.loop)
+    def reduced(self):
+        """Returns a reduced representation of the UP word."""
+        prefix, loop = self._reduce(self.prefix, self.loop)
         return self.__class__(prefix, loop, self.alphabet, False)
 
     def _compare_key(self):
-        # Lexicographic tuple of the comparison keys: loop first, then prefix
+        """Returns a tuple for comparison: (combined length, length of loop, prefix + loop)"""
         prefix_len = len(self.prefix)
         loop_len = len(self.loop)
         return prefix_len + loop_len, loop_len, self.prefix + self.loop
 
     def __lt__(self, other):
+        """Compare self < other based on compare key."""
         if isinstance(other, self.__class__):
             return self._compare_key() < other._compare_key()
         return NotImplemented
 
     def __le__(self, other):
+        """Compare self <= other based on compare key."""
         if isinstance(other, self.__class__):
             return self._compare_key() <= other._compare_key()
         return NotImplemented
 
     def __gt__(self, other):
+        """Compare self > other based on compare key."""
         if isinstance(other, self.__class__):
             return self._compare_key() > other._compare_key()
         return NotImplemented
 
     def __ge__(self, other):
+        """Compare self >= other based on compare key."""
         if isinstance(other, self.__class__):
             return self._compare_key() >= other._compare_key()
         return NotImplemented
 
     def __eq__(self, other):
+        """Compare self == other."""
         if isinstance(other, self.__class__):
             return self._compare_key() == other._compare_key()
         return NotImplemented
 
     def __ne__(self, other):
+        """Compare self != other."""
         if isinstance(other, self.__class__):
             return self._compare_key() != other._compare_key()
         return NotImplemented
 
     def __repr__(self):
+        """Returns a string representation of the UP word."""
         return f"ω({self.prefix if self.prefix else 'ε'}, {self.loop})"
 
     def __iter__(self):
@@ -203,12 +197,15 @@ class Omegastr:
                 yield ch
 
     def __hash__(self):
+        """Compute the hash based on the compare key."""
         return hash(self._compare_key())
 
     def __len__(self):
+        """Return the length of prefix and loop combined."""
         return len(self.prefix) + len(self.loop)
 
     def __contains__(self, item):
+        """Return if string appears in UP word."""
         item = str(item)
         if not item:
             return True
@@ -223,22 +220,25 @@ class Omegastr:
         return item in finite_sample
 
     def is_prefix(self, x):
+        """Returns if UP word starts with prefix string."""
         return self.__class__.check_prefix(self, x)
 
     @staticmethod
     def check_prefix(omega, x):
+        """Returns if x is prefix of UP word omega."""
         return omega[: len(x)] == x
 
     def subtract_prefix(self, x):
+        """Returns a new UP word with the prefix x removed."""
         if not self.is_prefix(x):
             raise ValueError("The string to subtract is not a prefix.")
         return self[len(x) :]
 
     def __getitem__(self, key):
         """
-        Indexing and slicing for omega-words.
+        Indexing and slicing for UP words.
 
-        - int  -> single character
+        - int -> single character
         - finite slice -> llstr (finite prefix)
         - slice with stop=None -> omegastr (infinite suffix, rotated cycle)
         """
@@ -253,7 +253,7 @@ class Omegastr:
                 )
             return u[key] if key < len_u else v[(key - len_u) % len_v]
 
-        # --- slice ---
+        # slice
         if not isinstance(key, slice):
             raise TypeError("Index must be int or slice.")
 
@@ -287,27 +287,30 @@ class Omegastr:
             new_second = llstr(v[offset:] + v[:offset])
         return self.__class__(new_first, new_second, self.alphabet)
 
-    def get_simple_str(self):
-        return str(self.prefix) + str(self.loop)
-
     def __radd__(self, other):
-        return self.__class__(other + self.prefix, self.loop, self.alphabet)
+        """Return a UP word with an added prefix."""
+        return self.__class__(other + self.prefix, self.loop)
 
     def get_alphabet(self):
+        """Get the alphabet of the UP word."""
         return set(self.prefix) | set(self.loop)
 
 
 class OmegastrLoop(Omegastr):
+    """UP word sorted by loop then by prefix, length-lexicographically each."""
+
     def _compare_key(self):
-        # Lexicographic tuple of the comparison keys: loop first, then prefix
+        """Length-lexicographic tuple of the comparison keys: loop first, then prefix."""
         return (self.loop._compare_key(), self.prefix._compare_key())
 
     def __repr__(self):
+        """Returns a string representation of the UP word."""
         return f"ωˡ({self.prefix if self.prefix else 'ε'}, {self.loop})"
 
 
 @cache
-def _omegaiter_length(alphabet, length):
+def _omegaiter_length(alphabet: str, length: int):
+    """Compute all Omegastrs of a fixed length."""
     length_strings = []
     output_strings = []
     for s in product(alphabet, repeat=length):
@@ -324,7 +327,8 @@ def _omegaiter_length(alphabet, length):
     return output_strings
 
 
-def omegaiter(alphabet="ab", limit=None):
+def omegaiter(alphabet="ab", limit: Optional[int] = None):
+    """Iterate over reduced Omegastr in order."""
     length = 1
     while limit is None or length <= limit:
         yield from _omegaiter_length(alphabet, length)
@@ -332,18 +336,23 @@ def omegaiter(alphabet="ab", limit=None):
 
 
 class OmegastrPrefix(Omegastr):
+    """Ultimately periodic word ordered length-lexicographically by prefix then by loop."""
+
     def _compare_key(self):
+        """Return comparison key: (combined length, prefix length, combined representation length-lex.)."""
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         prefix_len = len(self.prefix)
         loop_len = len(self.loop)
         return (prefix_len + loop_len, prefix_len, self.prefix + self.loop)
 
     def __repr__(self):
+        """Return a string representation of the ultimately periodic word."""
         return f"ωᵖ({self.prefix if self.prefix else 'ε'}, {self.loop})"
 
 
 @cache
-def _omegaiter_prefix_length(alphabet, length):
+def _omegaiter_prefix_length(alphabet: str, length: int):
+    """Iterate over reduced Omegastrs of fixed length in prefix order."""
     length_strings = []
     output_strings = []
     for s in product(alphabet, repeat=length):
@@ -361,7 +370,8 @@ def _omegaiter_prefix_length(alphabet, length):
     return output_strings
 
 
-def omegaiter_prefix(alphabet="ab", limit=None):
+def omegaiter_prefix(alphabet="ab", limit: Optional[int] = None):
+    """Iterate over reduced Omegastr in prefix order."""
     length = 1
     while limit is None or length <= limit:
         yield from _omegaiter_prefix_length(alphabet, length)
@@ -369,9 +379,12 @@ def omegaiter_prefix(alphabet="ab", limit=None):
 
 
 class OmegastrExpansion(Omegastr):
+    """Ultimately periodic word order by representation length then by omega-word lexicographically."""
+
     __slots__ = ("_key",)
 
     def _compare_key(self):
+        """Return compare key: (length of representation, prefix of twice the representation length)."""
         try:
             return self._key
         except AttributeError:
@@ -380,11 +393,13 @@ class OmegastrExpansion(Omegastr):
             return self._key
 
     def __repr__(self):
+        """String representation of UP word."""
         return f"ωᵉ({self.prefix if self.prefix else 'ε'}, {self.loop})"
 
 
 @cache
-def _omegaiter_expansion_length(alphabet, length):
+def _omegaiter_expansion_length(alphabet: str, length: int):
+    """Returns all UP words of fixed length in expansion order."""
     length_strings = list()
     for s in map("".join, product(alphabet, repeat=length)):
         for l in range(length):
@@ -395,24 +410,29 @@ def _omegaiter_expansion_length(alphabet, length):
     return sorted(length_strings)
 
 
-def omegaiter_expansion(alphabet="ab", limit=None):
+def omegaiter_expansion(alphabet="ab", length_limit: Optional[int] = None):
+    """Iterate over UP words in expansion order."""
     length = 1
-    while limit is None or length <= limit:
+    while length_limit is None or length <= length_limit:
         yield from _omegaiter_expansion_length(alphabet, length)
         length += 1
 
 
 class OmegastrLex(Omegastr):
+    """Ultimately periodic word sorted length-lexicographically by combined representation then by loop length."""
+
     def _compare_key(self):
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         return (self.prefix + self.loop, len(self.loop))
 
     def __repr__(self):
+        """String representation of UP word."""
         return f"ωˡˡ({self.prefix if self.prefix else 'ε'}, {self.loop})"
 
 
 @cache
-def _omegaiter_lex_length(alphabet, length):
+def _omegaiter_lex_length(alphabet: str, length: int):
+    """Returns all UP words of fixed length in representation length-lex order."""
     output_strings = list()
     for s in product(alphabet, repeat=length):
         s = "".join(s)
@@ -427,7 +447,8 @@ def _omegaiter_lex_length(alphabet, length):
     return output_strings
 
 
-def omegaiter_lex(alphabet="ab", limit=None):
+def omegaiter_lex(alphabet="ab", limit: Optional[int] = None):
+    """Iterates over UP words in representation length-lex order."""
     length = 1
     while limit is None or length <= limit:
         yield from _omegaiter_lex_length(alphabet, length)

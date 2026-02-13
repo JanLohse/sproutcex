@@ -9,14 +9,20 @@ from utils import FastRandomBag
 
 
 class Graph(dict[str, Any]):
+    """Wraps a dict to represent a directed deterministic graph."""
+
     def __init__(
-        self, struct: Optional[dict[str, dict[str, str]]] = None, start_node=None
+        self,
+        struct: Optional[dict[str, dict[str, str]]] = None,
+        start_node: Optional[str] = None,
     ):
+        """Initialize the graph."""
         super().__init__(struct or {})
 
         self._start_node = start_node
 
     def _repr_mimebundle_(self, include=None, exclude=None):
+        """Returns a rich  display for Jupyter/IPython."""
         if self:
             dot = draw_graph(self)
             return dot._repr_mimebundle_(include=include, exclude=exclude)
@@ -24,43 +30,43 @@ class Graph(dict[str, Any]):
             return dict(self)
 
     def get_start(self):
+        """Returns the start node, defaults to smallest node label."""
         if self._start_node is None and self:
             self._start_node = min(self)
         return self._start_node
 
     def get_alphabet(self) -> str:
+        """Returns the input alphabet of the graph."""
         alphabet = "".join(
             sorted({sym for (_, trans) in self.values() for sym in trans.keys()})
         )
         return alphabet
 
 
-def draw_graph(graph: Graph):
+def draw_graph(graph: Graph) -> Digraph:
+    """Converts a graph to a graphviz Digraph for rich display."""
     dot = Digraph()
     dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
     dot.attr(
         "node",
-        fontname="Helvetica",
         fontsize="14",
         height="0.25",
         width="0.25",
         shape="plaintext",
     )
-    dot.attr(
-        "edge", fontname="Helvetica", fontsize="14", arrowhead="vee", arrowsize="0.66"
-    )
+    dot.attr("edge", fontsize="14", arrowhead="vee", arrowsize="0.66")
 
-    # Draw states
+    # Draw states.
     for state in graph:
         sid = state if state else "ε"
         dot.node(sid)
 
-    # Start arrow
+    # Start arrow.
     start = graph.get_start()
     dot.node("", shape="none", height="0", width="0")
     dot.edge("", "ε" if start == "" else start)
 
-    # Merge edges
+    # Merge edges.
     merged = defaultdict(list)
     for state, transitions in graph.items():
         for symbol, target in transitions.items():
@@ -75,6 +81,8 @@ def draw_graph(graph: Graph):
 
 
 class Automaton(Graph):
+    """Wraps a dict to represent an automaton with state based acceptance."""
+
     def __init__(
         self,
         struct: Optional[dict[str, tuple[bool, dict[str, str]]]] = None,
@@ -83,6 +91,7 @@ class Automaton(Graph):
         super().__init__(struct, start_node)
 
     def _repr_mimebundle_(self, include=None, exclude=None):
+        """Returns a rich display for Jupyter/IPython."""
         if self:
             dot = draw_automaton(self)
             return dot._repr_mimebundle_(include=include, exclude=exclude)
@@ -91,6 +100,7 @@ class Automaton(Graph):
 
 
 def draw_automaton(automaton: Automaton):
+    """Converts an automaton to a graphviz Digraph for rich display."""
     dot = Digraph()
     dot.attr(size="11,11")
     if max([len(x) for x in automaton]) > 4:
@@ -102,18 +112,15 @@ def draw_automaton(automaton: Automaton):
     dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
     dot.attr(
         "node",
-        fontname="Helvetica",
-        fontsize="14",  # fillcolor="#fefeb2",
+        fontsize="14",
         shape=default_shape,
         height="0.35",
         width="0.35",
         style="rounded",
-    )  # style="rounded, filled"
-    dot.attr(
-        "edge", fontname="Helvetica", fontsize="14", arrowhead="vee", arrowsize="0.66"
     )
+    dot.attr("edge", fontsize="14", arrowhead="vee", arrowsize="0.66")
 
-    # Draw states
+    # Draw states.
     for state, (is_final, transitions) in automaton.items():
         sid = state if state else "ε"
         dot.node(
@@ -122,12 +129,12 @@ def draw_automaton(automaton: Automaton):
             shape=small_shape if len(state) <= 1 else default_shape,
         )
 
-    # Start arrow
+    # Start arrow.
     start = automaton.get_start()
     dot.node("", shape="none", height="0", width="0")
     dot.edge("", "ε" if start == "" else start)
 
-    # Merge edges
+    # Merge edges.
     merged = defaultdict(list)
     for state, (_, transitions) in automaton.items():
         for symbol, target in transitions.items():
@@ -142,11 +149,25 @@ def draw_automaton(automaton: Automaton):
 
 
 def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Automaton:
+    """
+    Generates a random complete weak deterministic Büchi automaton.
+
+    Args:
+        max_states: The maximum number of states allowed.
+        symbols: The input alphabet.
+        prob_acc: Probability for each state to be accepting.
+        seed: Seed for randomness.
+
+    Returns:
+        A weak deterministic Büchi automaton.
+    """
     if seed is not None:
         random.seed(seed)
     state_count = 1
     accepting_states = set()
     rejecting_states = set()
+
+    # add initial state
     initial_state = llstr("")
     initial_accepting = random.random() < prob_acc
     automaton = Automaton(
@@ -159,16 +180,22 @@ def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Aut
     predecessors = {initial_state: {initial_state}}
     successors = {initial_state: {initial_state}}
     stack = FastRandomBag([(initial_state, symbol) for symbol in symbols])
+
     while stack:
+        # Select random escaping edge to add.
         state, symbol = next(stack)
-        new_state = state + symbol
+
         if random.random() < (max_states - state_count) / max_states:
+            # Add a new state as the target.
+            new_state = state + symbol
             accepting = random.random() < prob_acc
             if accepting:
                 accepting_states.add(new_state)
             else:
                 rejecting_states.add(new_state)
             automaton[new_state] = [accepting, {}]
+
+            # Update predecessor and successor sets for weakness check.
             for sym in symbols:
                 stack.add((new_state, sym))
             automaton[state][1][symbol] = new_state
@@ -177,9 +204,13 @@ def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Aut
             for predecessor in predecessors[new_state]:
                 successors[predecessor].add(new_state)
             state_count += 1
+
         else:
+            # Select a random state as the target of the edge.
             targets = FastRandomBag(automaton.keys())
             found = False
+
+            # Search for target state that preserves weakness.
             while not found:
                 target = next(targets)
                 found = True
@@ -195,6 +226,7 @@ def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Aut
 
             automaton[state][1][symbol] = target
 
+            # Update predecessor and successor sets for weakness check.
             new_successors = successors[target]
             for new_predecessor in predecessors[state]:
                 successors[new_predecessor].update(new_successors)

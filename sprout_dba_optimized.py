@@ -1,11 +1,30 @@
 import heapq
 
 from graph_functions import Graph, Automaton
-from omega_language_modelling import llstr
-from sprout_dba import extend_state, delta
+from omega_language_modelling import llstr, Omegastr
+from sprout_dba import extend_state, delta_star
 
 
-def infinity_run_optim(graph_dict, word, initial_state, infinity_run_cache):
+def infinity_run_optim(
+    graph: Graph, word: Omegastr, infinity_run_cache: dict
+) -> tuple[bool, int | set[str], str | None]:
+    """
+    Computes the infinity run of a UP word in a graph.
+
+    Args:
+        graph: Graph in which the run happens.
+        word: Word for which to compute the run.
+        infinity_run_cache: Cache or runs in graph.
+
+    Returns:
+        tuple[bool, int | set[str], str | None]
+            - infinite (bool): Is the run infinite or does the word escape?
+            - index/infinite set (int | set[str]): The index in the word that escapes,
+              or the set of infinitely occurring states.
+            - escape state (str | None): State from which word escapes if it does.
+    """
+    initial_state = graph.get_start()
+
     if word in infinity_run_cache:
         success, a, b = infinity_run_cache[word]
         if success:
@@ -16,10 +35,10 @@ def infinity_run_optim(graph_dict, word, initial_state, infinity_run_cache):
     else:
         a = 0
 
-    if type(graph_dict[initial_state]) is dict:
-        delta = lambda x: graph_dict[x]
+    if type(graph[initial_state]) is dict:
+        delta = lambda x: graph[x]
     else:
-        delta = lambda x: graph_dict[x][1]
+        delta = lambda x: graph[x][1]
 
     prefix = word.prefix
     loop = word.loop
@@ -50,99 +69,90 @@ def infinity_run_optim(graph_dict, word, initial_state, infinity_run_cache):
         count += 1
 
 
-def escape_prefix_optim(graph_dict, word, initial_state, infinity_run_cache):
-    success, result, _ = infinity_run_optim(
-        graph_dict, word, initial_state, infinity_run_cache
-    )
-    if success:
-        return None
-    else:
-        return word[: result + 1]
-
-
 def escapes_optim(
-    graph_dict,
-    plus,
-    minus,
-    initial_state,
-    infinity_run_cache,
-    affected_words,
-    escaping_edge_to_words,
-    escaping,
-    escaping_set,
+    graph: Graph,
+    plus: set[Omegastr],
+    minus: set[Omegastr],
+    infinity_run_cache: dict,
+    affected_words: set[Omegastr],
+    escaping_edge_to_words: dict,
+    escaping_list: list[Omegastr],
+    escaping_set: set[Omegastr],
 ):
+    """Updates the data used to compute the minimal escaping prefix."""
     for word in (plus | minus) & affected_words:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         if not success:
             esc_prefix = word[: result + 1]
             esc_edge = state + esc_prefix[-1]
             escaping_edge_to_words.setdefault(esc_edge, set()).add(word)
             if word in plus and esc_prefix not in escaping_set:
-                heapq.heappush(escaping, esc_prefix)
+                heapq.heappush(escaping_list, esc_prefix)
                 escaping_set.add(esc_prefix)
 
 
-def extend_optim(graph_dict, plus, initial_state, infinity_run_cache):
+def extend_optim(graph: Graph, plus: set[Omegastr], infinity_run_cache: dict) -> Graph:
+    """Extends the graph by adding disjunct loops for exit strings."""
     escape_strings = {}
     for word in plus:
-        success, count, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, count, state = infinity_run_optim(graph, word, infinity_run_cache)
         if not success:
             escape_strings.setdefault(state, set()).add(
                 word[count : count + len(word.loop)]
             )
 
     for q0, loops in escape_strings.items():
-        extend_state(loops, q0, graph_dict)
+        extend_state(loops, q0, graph)
 
-    return graph_dict
+    return graph
 
 
-def infinity_set_optim(graph_dict, word, initial_state, infinity_run_cache):
-    success, result, _ = infinity_run_optim(
-        graph_dict, word, initial_state, infinity_run_cache
-    )
+def infinity_set_optim(
+    graph: Graph, word: Omegastr, infinity_run_cache: dict
+) -> None | set[str]:
+    """Gets the infinite set from the word."""
+    success, result, _ = infinity_run_optim(graph, word, infinity_run_cache)
     if success:
         return result
     else:
         return None
 
 
-def büchi_marking_optim(graph_dict, minus, initial_state, infinity_run_cache):
+def buchi_marking_optim(
+    graph: Graph, minus: set[Omegastr], infinity_run_cache: dict
+) -> set[str]:
+    """Computes the accepting states to produce a Büchi marking rejecting negative words."""
     negative_states = set()
 
     for word in minus:
-        state_set = infinity_set_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        state_set = infinity_set_optim(graph, word, infinity_run_cache)
         if state_set is not None:
             negative_states |= state_set
 
-    return set(graph_dict) - negative_states
+    return set(graph) - negative_states
 
 
-def aut_optim(graph_dict, minus, initial_state, infinity_run_cache):
-    accepting_states = büchi_marking_optim(
-        graph_dict, minus, initial_state, infinity_run_cache
-    )
-    for state, edges in graph_dict.items():
-        graph_dict[state] = [state in accepting_states, edges]
+def aut_dba_optim(
+    graph: Graph, minus: set[Omegastr], infinity_run_cache: dict
+) -> Automaton:
+    """Turns graph into a deterministic Büchi Automaton that rejects negative words."""
+    accepting_states = buchi_marking_optim(graph, minus, infinity_run_cache)
+    for state, edges in graph.items():
+        graph[state] = [state in accepting_states, edges]
 
-    return Automaton(graph_dict)
+    return Automaton(graph)
 
 
-def büchi_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run_cache):
+def buchi_consistent_optim(
+    graph: Graph, plus: set[Omegastr], minus: set[Omegastr], infinity_run_cache: dict
+) -> tuple[bool, None | dict]:
+    """Checks if graph is Büchi consistent and gives info to update cache efficiently."""
     escapes_negative = {}
     negative_states = set()
     cache_update = {}
 
     for word in minus:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             negative_states |= result
@@ -153,9 +163,7 @@ def büchi_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run
                 escapes_negative[state] = {word[result:]}
 
     for word in plus:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
         if success:
             found_state = False
@@ -171,17 +179,30 @@ def büchi_consistent_optim(graph_dict, plus, minus, initial_state, infinity_run
     return True, cache_update
 
 
-def update_cache(graph_dict, affected_words, initial_state, infinity_run_cache):
+def update_cache(graph: Graph, affected_words: set[Omegastr], infinity_run_cache: dict):
+    """Updates the cache for affected words."""
     for word in affected_words:
-        success, result, state = infinity_run_optim(
-            graph_dict, word, initial_state, infinity_run_cache
-        )
+        success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         infinity_run_cache[word] = (success, result, state)
 
 
 def sprout_dba_optim(plus, minus, square_threshold=False):
+    """
+    Computes a deterministic Büchi automaton consistent with the sample, if possible.
+    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+    Employs a cache to compute runs faster.
+
+    Args:
+        plus: Words that are to be accepted.
+        minus: Words that are to be rejected.
+        square_threshold: Should the original square threshold from Sprout be used?
+
+    Returns:
+        The resulting automaton.
+    """
     initial_state = llstr("")
-    graph_dict = Graph({initial_state: {}})
+    graph = Graph({initial_state: {}})
     samples = {*plus, *minus}
     if square_threshold:
         threshold = (
@@ -198,15 +219,15 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
         escaping_edge_to_words.setdefault(a, set()).add(word)
 
     escaping_set = {word[0] for word in plus}
-    escaping = list(escaping_set)
-    heapq.heapify(escaping)
-    while escaping:
-        ua = heapq.heappop(escaping)
+    escaping_list = list(escaping_set)
+    heapq.heapify(escaping_list)
+    while escaping_list:
+        ua = heapq.heappop(escaping_list)
         escaping_set.remove(ua)
         u = ua[:-1]
         a = ua[-1]
 
-        u_hat = delta(graph_dict, initial_state, u)
+        u_hat = delta_star(graph, initial_state, u)
         u_hat_a = u_hat + a
         try:
             affected_words = escaping_edge_to_words.pop(u_hat_a)
@@ -214,19 +235,18 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
             continue
 
         if len(u) > threshold:
-            return aut_optim(
-                extend_optim(graph_dict, plus, initial_state, infinity_run_cache),
+            return aut_dba_optim(
+                extend_optim(graph, plus, infinity_run_cache),
                 minus,
-                initial_state,
                 infinity_run_cache,
             )
 
         found_edge = False
-        for q in sorted(graph_dict):
-            graph_dict[u_hat][a] = q
+        for q in sorted(graph):
+            graph[u_hat][a] = q
 
-            consistent, cache_update = büchi_consistent_optim(
-                graph_dict, plus, minus, initial_state, infinity_run_cache
+            consistent, cache_update = buchi_consistent_optim(
+                graph, plus, minus, infinity_run_cache
             )
             if consistent:
                 infinity_run_cache = cache_update
@@ -234,20 +254,19 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
                 break
 
         if not found_edge:
-            graph_dict[u_hat_a] = {}
-            graph_dict[u_hat][a] = u_hat_a
-            update_cache(graph_dict, affected_words, initial_state, infinity_run_cache)
+            graph[u_hat_a] = {}
+            graph[u_hat][a] = u_hat_a
+            update_cache(graph, affected_words, infinity_run_cache)
 
         escapes_optim(
-            graph_dict,
+            graph,
             plus,
             minus,
-            initial_state,
             infinity_run_cache,
             affected_words,
             escaping_edge_to_words,
-            escaping,
+            escaping_list,
             escaping_set,
         )
 
-    return aut_optim(graph_dict, minus, initial_state, infinity_run_cache)
+    return aut_dba_optim(graph, minus, infinity_run_cache)

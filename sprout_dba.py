@@ -1,14 +1,29 @@
+from typing import Optional
+
 from graph_functions import Graph, Automaton
-from omega_language_modelling import llstr
+from omega_language_modelling import llstr, Omegastr
 
 
-def extend_state(words, q="", graph=None):
-    words_left = set(words)
+def extend_state(
+    loops: set[Omegastr], state="", graph: Optional[Graph] = None
+) -> Graph:
+    """
+    Extend graph by adding disjunct loops to a specific state.
+
+    Args:
+        loops: Set of loops to add.
+        state: State in graph on which to add the loops.
+        graph: Graph to extend. Creates single state graph if left empty.
+
+    Returns:
+        Extended graph.
+    """
+    words_left = set(loops)
     if graph is None:
-        graph = {q: {}}
+        graph = {state: {}}
     index = 0
     state_to_word = {}
-    words_to_prefix = {word: q for word in words}
+    words_to_prefix = {word: state for word in loops}
 
     # build the minimal prefix tree
     while words_left:
@@ -31,7 +46,7 @@ def extend_state(words, q="", graph=None):
 
     # add loops for every word
     for word, prefix in words_to_prefix.items():
-        offset = (len(prefix) - len(q)) % len(word)
+        offset = (len(prefix) - len(state)) % len(word)
         current_state = prefix
         i = 0
         for i in range(len(word) - 1):
@@ -46,15 +61,32 @@ def extend_state(words, q="", graph=None):
     return graph
 
 
-def infinity_run(graph_dict, word, initial_state):
+def infinity_run(
+    graph: Graph, word: Omegastr
+) -> tuple[bool, int | set[str], str | None]:
+    """
+    Computes the infinity run of a UP word in a graph.
+
+    Args:
+        graph: Graph in which the run happens.
+        word: Word for which to compute the run.
+
+    Returns:
+        tuple[bool, int | set[str], str | None]
+            - infinite (bool): Is the run infinite or does the word escape?
+            - index/infinite set (int | set[str]): The index in the word that escapes,
+              or the set of infinitely occurring states.
+            - escape state (str | None): State from which word escapes if it does.
+    """
     prefix = word.prefix
     loop = word.loop
     loop_len = len(loop)
+    initial_state = graph.get_start()
 
-    if type(graph_dict[initial_state]) is dict:
-        delta = lambda x: graph_dict[x]
+    if type(graph[initial_state]) is dict:
+        delta = lambda x: graph[x]
     else:
-        delta = lambda x: graph_dict[x][1]
+        delta = lambda x: graph[x][1]
 
     current = initial_state
     for i, symbol in enumerate(prefix):
@@ -81,90 +113,98 @@ def infinity_run(graph_dict, word, initial_state):
         count += 1
 
 
-def escape_prefix(graph_dict, word, initial_state):
-    success, result, _ = infinity_run(graph_dict, word, initial_state)
+def escape_prefix(graph: Graph, word: Omegastr) -> None | str:
+    """Compute escape prefix if the word escapes from the graph."""
+    success, result, _ = infinity_run(graph, word)
     if success:
         return None
     else:
         return word[: result + 1]
 
 
-def escapes(graph_dict, plus, initial_state):
+def escapes(graph: Graph, plus: set[Omegastr]) -> list[str]:
+    """Computes a sorted list of escape prefixes in the graph."""
     escaping = set()
     for word in plus:
-        esc_prefix = escape_prefix(graph_dict, word, initial_state)
+        esc_prefix = escape_prefix(graph, word)
         if esc_prefix is not None:
             escaping.add(esc_prefix)
     return sorted(escaping)
 
 
-def extend(graph_dict, plus, initial_state):
+def extend(graph: Graph, plus: set[Omegastr]) -> Graph:
+    """Extends the graph by adding disjunct loops for exit strings."""
     escape_strings = {}
     for word in plus:
-        success, count, state = infinity_run(graph_dict, word, initial_state)
+        success, count, state = infinity_run(graph, word)
         if not success:
             escape_strings.setdefault(state, set()).add(
                 word[count : count + len(word.loop)]
             )
 
     for q0, loops in escape_strings.items():
-        extend_state(loops, q0, graph_dict)
+        extend_state(loops, q0, graph)
 
-    return graph_dict
+    return graph
 
 
-def infinity_set(graph_dict, word, initial_state):
-    success, result, _ = infinity_run(graph_dict, word, initial_state)
+def infinity_set(graph: Graph, word: Omegastr) -> None | set[str]:
+    """Gets the infinite set from the word."""
+    success, result, _ = infinity_run(graph, word)
     if success:
         return result
     else:
         return None
 
 
-def büchi_marking(graph_dict, minus, initial_state):
+def buchi_marking(graph: Graph, minus: set[Omegastr]) -> set[str]:
+    """Computes the accepting states to produce a Buchi marking rejecting negative words."""
     negative_states = set()
 
     for word in minus:
-        state_set = infinity_set(graph_dict, word, initial_state)
+        state_set = infinity_set(graph, word)
         if state_set is not None:
             negative_states |= state_set
 
-    return set(graph_dict) - negative_states
+    return set(graph) - negative_states
 
 
-def aut_dba(graph_dict, minus, initial_state):
-    accepting_states = büchi_marking(graph_dict, minus, initial_state)
-    for state, edges in graph_dict.items():
-        graph_dict[state] = [state in accepting_states, edges]
+def aut_dba(graph: Graph, minus: set[Omegastr]) -> Automaton:
+    """Turns graph into a deterministic Büchi Automaton that rejects negative words."""
+    accepting_states = buchi_marking(graph, minus)
+    for state, edges in graph.items():
+        graph[state] = [state in accepting_states, edges]
 
-    return Automaton(graph_dict)
+    return Automaton(graph)
 
 
-def delta(graph_dict, q, w):
+def delta_star(graph: Graph, q: str, w: str) -> str | None:
+    """Computes state that is reached in graph from q after reading w."""
     current_state = q
 
     for a in w:
         try:
-            current_state = graph_dict[current_state][a]
+            current_state = graph[current_state][a]
         except KeyError:
             return None
 
     return current_state
 
 
-def büchi_consistent(graph_dict, plus, minus, initial_state):
+def buchi_consistent(graph: Graph, plus: set[Omegastr], minus: set[Omegastr]) -> bool:
+    """Checks if graph is Büchi consistent."""
     escapes_negative = {}
     negative_states = set()
 
     for word in minus:
-        success, result, state = infinity_run(graph_dict, word, initial_state)
+        success, result, state = infinity_run(graph, word)
         if success:
             negative_states |= result
         else:
             escapes_negative.setdefault(state, set()).add(word[result:])
 
     for word in plus:
-        success, result, state = infinity_run(graph_dict, word, initial_state)
+        success, result, state = infinity_run(graph, word)
         if success:
             found_state = False
             for q in result:
@@ -179,9 +219,24 @@ def büchi_consistent(graph_dict, plus, minus, initial_state):
     return True
 
 
-def sprout_dba(plus, minus, square_threshold=False):
+def sprout_dba(
+    plus: set[Omegastr], minus: set[Omegastr], square_threshold=False
+) -> Automaton:
+    """
+    Computes a deterministic Büchi automaton consistent with the sample, if possible.
+    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+
+    Args:
+        plus: Words that are to be accepted.
+        minus: Words that are to be rejected.
+        square_threshold: Should the original square threshold from Sprout be used?
+
+    Returns:
+        The resulting automaton.
+    """
     initial_state = llstr("")
-    graph_dict = Graph({initial_state: {}})
+    graph = Graph({initial_state: {}})
     samples = {*plus, *minus}
     if square_threshold:
         threshold = (
@@ -192,39 +247,37 @@ def sprout_dba(plus, minus, square_threshold=False):
     else:
         threshold = max([len(x) for x in samples] + [0]) * 2 - 1
 
-    escaping = escapes(graph_dict, plus, initial_state)
+    escaping = escapes(graph, plus)
     while escaping:
         ua = escaping[0]
         u = ua[:-1]
         a = ua[-1]
 
         if len(u) > threshold:
-            return aut_dba(
-                extend(graph_dict, plus, initial_state), minus, initial_state
-            )
+            return aut_dba(extend(graph, plus), minus)
 
-        u_hat = delta(graph_dict, initial_state, u)
+        u_hat = delta_star(graph, initial_state, u)
 
         found_edge = False
-        for q in sorted(graph_dict):
-            graph_dict[u_hat][a] = q
+        for q in sorted(graph):
+            graph[u_hat][a] = q
 
-            if büchi_consistent(graph_dict, plus, minus, initial_state):
+            if buchi_consistent(graph, plus, minus):
                 found_edge = True
                 break
 
         if not found_edge:
             u_hat_a = u_hat + a
-            graph_dict[u_hat_a] = {}
-            graph_dict[u_hat][a] = u_hat_a
+            graph[u_hat_a] = {}
+            graph[u_hat][a] = u_hat_a
 
-        escaping = escapes(graph_dict, plus, initial_state)
+        escaping = escapes(graph, plus)
 
-    return aut_dba(graph_dict, minus, initial_state)
+    return aut_dba(graph, minus)
 
 
-def is_accepting(graph_dict, word, initial_state):
-    success, state_set, _ = infinity_run(graph_dict, word, initial_state)
+def is_accepting(graph_dict, word):
+    success, state_set, _ = infinity_run(graph_dict, word)
 
     if not success:
         return False
