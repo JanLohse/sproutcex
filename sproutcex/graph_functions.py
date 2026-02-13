@@ -1,15 +1,19 @@
+"""
+Helper classes and functions for handling and displaying graphs and automata.
+"""
+
 import random
 from collections import defaultdict
 from typing import Optional, Any
 
 from graphviz import Digraph
 
-from omega_language_modelling import llstr
-from utils import FastRandomBag
+from .omega_language_modelling import llstr
+from .utils import FastRandomBag
 
 
 class Graph(dict[str, Any]):
-    """Wraps a dict to represent a directed deterministic graph."""
+    """Wraps a `dict` to represent a directed deterministic graph."""
 
     def __init__(
         self,
@@ -22,7 +26,7 @@ class Graph(dict[str, Any]):
         self._start_node = start_node
 
     def _repr_mimebundle_(self, include=None, exclude=None):
-        """Returns a rich  display for Jupyter/IPython."""
+        """Returns a rich display for Jupyter/IPython."""
         if self:
             dot = draw_graph(self)
             return dot._repr_mimebundle_(include=include, exclude=exclude)
@@ -30,13 +34,13 @@ class Graph(dict[str, Any]):
             return dict(self)
 
     def get_start(self):
-        """Returns the start node, defaults to smallest node label."""
+        """Returns the start node $q_0$. Defaults to smallest node label."""
         if self._start_node is None and self:
             self._start_node = min(self)
         return self._start_node
 
     def get_alphabet(self) -> str:
-        """Returns the input alphabet of the graph."""
+        """Returns the input alphabet $\Sigma$ of the graph."""
         alphabet = "".join(
             sorted({sym for (_, trans) in self.values() for sym in trans.keys()})
         )
@@ -44,7 +48,7 @@ class Graph(dict[str, Any]):
 
 
 def draw_graph(graph: Graph) -> Digraph:
-    """Converts a graph to a graphviz Digraph for rich display."""
+    """Converts a graph to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
     dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
     dot.attr(
@@ -81,7 +85,7 @@ def draw_graph(graph: Graph) -> Digraph:
 
 
 class Automaton(Graph):
-    """Wraps a dict to represent an automaton with state based acceptance."""
+    """Wraps a `dict` to represent an automaton with state based acceptance."""
 
     def __init__(
         self,
@@ -100,7 +104,7 @@ class Automaton(Graph):
 
 
 def draw_automaton(automaton: Automaton):
-    """Converts an automaton to a graphviz Digraph for rich display."""
+    """Converts an automaton to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
     dot.attr(size="11,11")
     if max([len(x) for x in automaton]) > 4:
@@ -154,7 +158,7 @@ def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Aut
 
     Args:
         max_states: The maximum number of states allowed.
-        symbols: The input alphabet.
+        symbols: The input alphabet $\Sigma$.
         prob_acc: Probability for each state to be accepting.
         seed: Seed for randomness.
 

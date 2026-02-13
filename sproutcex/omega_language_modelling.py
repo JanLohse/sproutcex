@@ -1,3 +1,7 @@
+"""
+Classes modeling ultimately periodic words with a variety of $\omega$-orderings.
+"""
+
 from collections.abc import Iterable
 from functools import cache
 from itertools import product
@@ -79,7 +83,12 @@ class llstr(str):
 
 
 class Omegastr:
-    """An ultimately periodic word sorted by length of representation, length of loop, then lexicographically."""
+    """An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |v|, uv_{lex})$."""
+
+    prefix: llstr
+    """The prefix $u$ of $u v^\omega$."""
+    loop: llstr
+    """The loop $v$ of $u v^\omega$."""
 
     def __init__(
         self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, reduce=True
@@ -94,6 +103,7 @@ class Omegastr:
             prefix = llstr(prefix)
         if not isinstance(loop, llstr):
             loop = llstr(loop)
+
         self.prefix = prefix
         self.loop = loop
 
@@ -220,13 +230,13 @@ class Omegastr:
         return item in finite_sample
 
     def is_prefix(self, x):
-        """Returns if UP word starts with prefix string."""
+        """Returns if $u v^\omega$ starts with prefix $x$."""
         return self.__class__.check_prefix(self, x)
 
     @staticmethod
-    def check_prefix(omega, x):
-        """Returns if x is prefix of UP word omega."""
-        return omega[: len(x)] == x
+    def check_prefix(omegaword, x):
+        """Returns if $x$ is prefix of $u v^\omega$."""
+        return omegaword[: len(x)] == x
 
     def subtract_prefix(self, x):
         """Returns a new UP word with the prefix x removed."""

@@ -4,18 +4,18 @@ from typing import Optional
 
 from IPython.core.display_functions import display
 
-from graph_functions import Automaton
-from smallest_cex import (
+from .graph_functions import Automaton
+from .smallest_cex import (
     smallest_cex,
     smallest_cex_expansion,
     smallest_cex_loop,
     smallest_cex_prefix,
     smallest_cex_lex,
 )
-from sprout_dba import sprout_dba
-from sprout_dba_optimized import sprout_dba_optim
-from sprout_wdba import sprout_wdba
-from sprout_wdba_optimized import sprout_wdba_optim
+from .sprout_dba import sprout_dba
+from .sprout_dba_optimized import sprout_dba_optim
+from .sprout_wdba import sprout_wdba
+from .sprout_wdba_optimized import sprout_wdba_optim
 
 CONS_METHODS = {
     "dba": sprout_dba_optim,

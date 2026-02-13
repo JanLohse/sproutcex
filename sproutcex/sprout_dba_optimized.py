@@ -1,8 +1,15 @@
+"""
+Implements the **Sprout** algorithm by Bohn and Löding from
+*Constructing Deterministic $\omega$-Automata from Examples
+by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
+Uses a cache to speed up run computations.
+"""
+
 import heapq
 
-from graph_functions import Graph, Automaton
-from omega_language_modelling import llstr, Omegastr
-from sprout_dba import extend_state, delta_star
+from .graph_functions import Graph, Automaton
+from .omega_language_modelling import llstr, Omegastr
+from .sprout_dba import extend_state, delta_star
 
 
 def infinity_run_optim(
@@ -17,11 +24,10 @@ def infinity_run_optim(
         infinity_run_cache: Cache or runs in graph.
 
     Returns:
-        tuple[bool, int | set[str], str | None]
-            - infinite (bool): Is the run infinite or does the word escape?
-            - index/infinite set (int | set[str]): The index in the word that escapes,
-              or the set of infinitely occurring states.
-            - escape state (str | None): State from which word escapes if it does.
+        - infinite (bool): Is the run infinite or does the word escape?
+        - index/infinite set (int | set[str]): The index in the word that escapes,
+          or the set of infinitely occurring states.
+        - escape state (str | None): State from which word escapes if it does.
     """
     initial_state = graph.get_start()
 
@@ -92,7 +98,10 @@ def escapes_optim(
 
 
 def extend_optim(graph: Graph, plus: set[Omegastr], infinity_run_cache: dict) -> Graph:
-    """Extends the graph by adding disjunct loops for exit strings."""
+    """
+    Extends the graph by adding disjunct loops for exit strings.
+    Implements **Extend** from **Sprout**.
+    """
     escape_strings = {}
     for word in plus:
         success, count, state = infinity_run_optim(graph, word, infinity_run_cache)
@@ -121,7 +130,10 @@ def infinity_set_optim(
 def buchi_marking_optim(
     graph: Graph, minus: set[Omegastr], infinity_run_cache: dict
 ) -> set[str]:
-    """Computes the accepting states to produce a Büchi marking rejecting negative words."""
+    """
+    Computes the accepting states to produce a Büchi marking rejecting negative words.
+    Implements **BuchiCons** from **Sprout**.
+    """
     negative_states = set()
 
     for word in minus:
@@ -189,8 +201,8 @@ def update_cache(graph: Graph, affected_words: set[Omegastr], infinity_run_cache
 def sprout_dba_optim(plus, minus, square_threshold=False):
     """
     Computes a deterministic Büchi automaton consistent with the sample, if possible.
-    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
-    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+    Based on **Sprout** algorithm by Bohn and Löding from *Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm*.
     Employs a cache to compute runs faster.
 
     Args:

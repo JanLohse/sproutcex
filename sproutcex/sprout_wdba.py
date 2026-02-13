@@ -1,9 +1,15 @@
+"""
+Adapts the **Sprout** algorithm by Bohn and Löding from
+*Constructing Deterministic $\omega$-Automata from Examples
+by an Extension of the RPNI Algorithm* for weak deterministic Büchi automata.
+"""
+
 import heapq
 
-from graph_functions import Automaton, Graph
-from omega_language_modelling import llstr, Omegastr
-from sprout_dba import delta_star
-from sprout_dba_optimized import (
+from .graph_functions import Automaton, Graph
+from .omega_language_modelling import llstr, Omegastr
+from .sprout_dba import delta_star
+from .sprout_dba_optimized import (
     infinity_run_optim,
     infinity_set_optim,
     extend_optim,
@@ -121,8 +127,8 @@ def sprout_wdba(
 ) -> Automaton:
     """
     Computes a weak deterministic Büchi automaton consistent with the sample, if possible.
-    Based on Sprout algorithm by Bohn and Löding from Constructing Deterministic
-    omega-Automata from Examples by an Extension of the RPNI Algorithm.
+    Based on **Sprout** algorithm by Bohn and Löding from *Constructing Deterministic
+    omega-Automata from Examples by an Extension of the RPNI Algorithm*.
     Employs a cache to compute runs faster.
 
     Args:

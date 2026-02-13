@@ -1,8 +1,13 @@
+"""
+Implements the equivalence check and search for smallest counterexamples for $omega$-automata.
+Used to simulate the equivalence queries in learning from smallest counterexamples.
+"""
+
 from collections import deque, defaultdict
 from itertools import product
 
-from graph_functions import Automaton
-from omega_language_modelling import (
+from .graph_functions import Automaton
+from .omega_language_modelling import (
     omegaiter,
     omegaiter_prefix,
     omegaiter_lex,
@@ -14,7 +19,7 @@ from omega_language_modelling import (
     OmegastrLex,
     OmegastrExpansion,
 )
-from sprout_dba import is_accepting
+from .sprout_dba import is_accepting
 
 
 def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
@@ -119,16 +124,17 @@ def smallest_cex(
     Test for equivalence of two DBA and returns smallest counterexample if they are not.
 
     Args:
-        a: Deterministic Büchi automaton..
+        a: Deterministic Büchi automaton.
         b: Deterministic Büchi automaton.
         iterator: Iterator for Omegastr to specify in what order to test UP words.
 
     Returns:
-        tuple[bool, Omegastr | None, bool | None]: A tuple containing:
-            - equivalent (bool): True if the automata are equivalent.
-            - counterexample (Omegastr | None): The smallest counterexample,
-              or None if equivalent.
-            - positive (bool | None): True if the counterexample is positive.
+        A tuple containing:
+
+        - equivalent (bool): True if the automata are equivalent.
+        - counterexample (Omegastr | None): The smallest counterexample,
+          or None if equivalent.
+        - positive (bool | None): True if the counterexample is positive.
     """
     # Test for equivalence.
     if are_dba_equivalent(a, b):
@@ -160,11 +166,12 @@ def smallest_cex_prefix(
         b: Deterministic Büchi automaton.
 
     Returns:
-        tuple[bool, OmegastrPrefix | None, bool | None]: A tuple containing:
-            - equivalent (bool): True if the automata are equivalent.
-            - counterexample (OmegastrPrefix | None): The smallest counterexample,
-              or None if equivalent.
-            - positive (bool | None): True if the counterexample is positive.
+        A tuple containing:
+
+        - equivalent (bool): True if the automata are equivalent.
+        - counterexample (OmegastrPrefix | None): The smallest counterexample,
+          or None if equivalent.
+        - positive (bool | None): True if the counterexample is positive.
     """
     return smallest_cex(a, b, iterator=omegaiter_prefix)
 
@@ -180,11 +187,12 @@ def smallest_cex_lex(
         b: Deterministic Büchi automaton.
 
     Returns:
-        tuple[bool, OmegastrLex | None, bool | None]: A tuple containing:
-            - equivalent (bool): True if the automata are equivalent.
-            - counterexample (OmegastrLex | None): The smallest counterexample,
-              or None if equivalent.
-            - positive (bool | None): True if the counterexample is positive.
+        A tuple containing:
+
+        - equivalent (bool): True if the automata are equivalent.
+        - counterexample (OmegastrLex | None): The smallest counterexample,
+          or None if equivalent.
+        - positive (bool | None): True if the counterexample is positive.
     """
     return smallest_cex(a, b, iterator=omegaiter_lex)
 
@@ -200,11 +208,12 @@ def smallest_cex_expansion(
         b: Deterministic Büchi automaton.
 
     Returns:
-        tuple[bool, OmegastrExpansion | None, bool | None]: A tuple containing:
-            - equivalent (bool): True if the automata are equivalent.
-            - counterexample (OmegastrExpansion | None): The smallest counterexample,
-              or None if equivalent.
-            - positive (bool | None): True if the counterexample is positive.
+        A tuple containing:
+
+        - equivalent (bool): True if the automata are equivalent.
+        - counterexample (OmegastrExpansion | None): The smallest counterexample,
+          or None if equivalent.
+        - positive (bool | None): True if the counterexample is positive.
     """
     return smallest_cex(a, b, iterator=omegaiter_expansion)
 
@@ -212,7 +221,7 @@ def smallest_cex_expansion(
 def smallest_diff_loop_product_automaton(
     automaton: Automaton,
 ) -> tuple[OmegastrLoop, set[str], set[str]] | tuple[None, None, None]:
-    """Compute smallest loop rejected by one and accepted by the other automaton of a product automaton."""
+    """Compute the smallest loop rejected by one and accepted by the other automaton of a product automaton."""
     alphabet = automaton.get_alphabet()
 
     # Compute SCCs with disagreeing loops and all states in them.
@@ -347,11 +356,12 @@ def smallest_cex_loop(
         b: Deterministic Büchi automaton.
 
     Returns:
-        tuple[bool, OmegastrLoop | None, bool | None]: A tuple containing:
-            - equivalent (bool): True if the automata are equivalent.
-            - counterexample (OmegastrLoop | None): The smallest counterexample,
-              or None if equivalent.
-            - positive (bool | None): True if the counterexample is positive.
+        A tuple containing:
+
+        - equivalent (bool): True if the automata are equivalent.
+        - counterexample (OmegastrLoop | None): The smallest counterexample,
+          or None if equivalent.
+        - positive (bool | None): True if the counterexample is positive.
     """
     alphabet_a = a.get_alphabet()
     alphabet_b = b.get_alphabet()

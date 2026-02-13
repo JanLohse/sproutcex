@@ -1,7 +1,13 @@
+"""
+Implements the **Sprout** algorithm by Bohn and Löding from
+*Constructing Deterministic $\omega$-Automata from Examples
+by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
+"""
+
 from typing import Optional
 
-from graph_functions import Graph, Automaton
-from omega_language_modelling import llstr, Omegastr
+from .graph_functions import Graph, Automaton
+from .omega_language_modelling import llstr, Omegastr
 
 
 def extend_state(
@@ -72,11 +78,10 @@ def infinity_run(
         word: Word for which to compute the run.
 
     Returns:
-        tuple[bool, int | set[str], str | None]
-            - infinite (bool): Is the run infinite or does the word escape?
-            - index/infinite set (int | set[str]): The index in the word that escapes,
-              or the set of infinitely occurring states.
-            - escape state (str | None): State from which word escapes if it does.
+        - infinite (bool): Is the run infinite or does the word escape?
+        - index/infinite set (int | set[str]): The index in the word that escapes,
+          or the set of infinitely occurring states.
+        - escape state (str | None): State from which word escapes if it does.
     """
     prefix = word.prefix
     loop = word.loop
@@ -133,7 +138,10 @@ def escapes(graph: Graph, plus: set[Omegastr]) -> list[str]:
 
 
 def extend(graph: Graph, plus: set[Omegastr]) -> Graph:
-    """Extends the graph by adding disjunct loops for exit strings."""
+    """
+    Extends the graph by adding disjunct loops for exit strings.
+    Implements **Extend** from **Sprout**.
+    """
     escape_strings = {}
     for word in plus:
         success, count, state = infinity_run(graph, word)
@@ -170,7 +178,10 @@ def buchi_marking(graph: Graph, minus: set[Omegastr]) -> set[str]:
 
 
 def aut_dba(graph: Graph, minus: set[Omegastr]) -> Automaton:
-    """Turns graph into a deterministic Büchi Automaton that rejects negative words."""
+    """
+    Turns graph into a deterministic Büchi Automaton that rejects negative words.
+    Implements the **Aut** function from **Sprout**.
+    """
     accepting_states = buchi_marking(graph, minus)
     for state, edges in graph.items():
         graph[state] = [state in accepting_states, edges]
@@ -179,7 +190,7 @@ def aut_dba(graph: Graph, minus: set[Omegastr]) -> Automaton:
 
 
 def delta_star(graph: Graph, q: str, w: str) -> str | None:
-    """Computes state that is reached in graph from q after reading w."""
+    """Computes state that is reached in graph from $q$ after reading $w$."""
     current_state = q
 
     for a in w:

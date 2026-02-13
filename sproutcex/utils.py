@@ -1,8 +1,11 @@
 import random
-
+from typing import Optional, Iterable
 
 class FastRandomBag:
-    def __init__(self, items=None):
+    """A simple list wrapper to pop random items from a bag."""
+    data: list
+
+    def __init__(self, items: Optional[Iterable]=None):
         self.data = list(items) if items else []
 
     def add(self, item):
@@ -10,7 +13,7 @@ class FastRandomBag:
         self.data.append(item)
 
     def pop_random(self):
-        """Remove and return a random item in O(1) time."""
+        """Remove and return a random item in $\mathcal{O}(1)$ time."""
         if not self.data:
             raise StopIteration("FastRandomBag is empty")
         i = random.randrange(len(self.data))
