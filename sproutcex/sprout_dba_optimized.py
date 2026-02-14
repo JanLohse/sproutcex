@@ -1,4 +1,4 @@
-"""
+r"""
 Implements the **Sprout** algorithm by Bohn and Löding from
 *Constructing Deterministic $\omega$-Automata from Examples
 by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
