@@ -1,4 +1,4 @@
-"""
+r"""
 Adapts the **Sprout** algorithm by Bohn and Löding from
 *Constructing Deterministic $\omega$-Automata from Examples
 by an Extension of the RPNI Algorithm* for weak deterministic Büchi automata.
@@ -114,7 +114,9 @@ def wdba_marking(
 
 
 def aut_wdba(graph: Graph, minus: set[Omegastr], infinity_run_cache: dict) -> Automaton:
-    """Turns graph into a weak deterministic Büchi Automaton that rejects negative words."""
+    """
+    Turns graph into a weak deterministic Büchi Automaton that rejects negative words.
+    """
     accepting_states = wdba_marking(graph, minus, infinity_run_cache)
     for state, edges in graph.items():
         graph[state] = [state in accepting_states, edges]
@@ -126,9 +128,9 @@ def sprout_wdba(
     plus: set[Omegastr], minus: set[Omegastr], square_threshold=False
 ) -> Automaton:
     """
-    Computes a weak deterministic Büchi automaton consistent with the sample, if possible.
-    Based on **Sprout** algorithm by Bohn and Löding from *Constructing Deterministic
-    omega-Automata from Examples by an Extension of the RPNI Algorithm*.
+    Computes a weak deterministic Büchi automaton consistent with the sample, if
+    possible. Based on **Sprout** algorithm by Bohn and Löding from *Constructing
+    Deterministic $omega$-Automata from Examples by an Extension of the RPNI Algorithm*.
     Employs a cache to compute runs faster.
 
     Args:

@@ -1,4 +1,4 @@
-"""
+r"""
 Adapts the **Sprout** algorithm by Bohn and Löding from
 *Constructing Deterministic $\omega$-Automata from Examples
 by an Extension of the RPNI Algorithm* for weak deterministic Büchi automata.
@@ -94,12 +94,12 @@ def wdba_consistent_optim(
 
 
 def sprout_wdba_optim(plus, minus, square_threshold=False):
-    """
-    Computes a weak deterministic Büchi automaton consistent with the sample, if possible.
-    Based on **Sprout** algorithm by Bohn and Löding from *Constructing Deterministic
-    omega-Automata from Examples by an Extension of the RPNI Algorithm*.
-    Employs a cache to compute runs faster and stores predecessors and successors
-    to check for weakness faster.
+    r"""
+    Computes a weak deterministic Büchi automaton consistent with the sample, if
+    possible. Based on **Sprout** algorithm by Bohn and Löding from *Constructing
+    Deterministic $\omega$-Automata from Examples by an Extension of the RPNI
+    Algorithm*. Employs a cache to compute runs faster and stores predecessors and
+    successors to check for weakness faster.
 
     Args:
         plus: Words that are to be accepted.

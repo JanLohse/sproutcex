@@ -1,4 +1,4 @@
-"""
+r"""
 Classes modeling ultimately periodic words with a variety of $\omega$-orderings.
 """
 
@@ -83,12 +83,12 @@ class llstr(str):
 
 
 class Omegastr:
-    """An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |v|, uv_{lex})$."""
+    r"""An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |v|, uv_{lex})$."""
 
     prefix: llstr
-    """The prefix $u$ of $u v^\omega$."""
+    r"""The prefix $u$ of $u v^\omega$."""
     loop: llstr
-    """The loop $v$ of $u v^\omega$."""
+    r"""The loop $v$ of $u v^\omega$."""
 
     def __init__(
         self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, reduce=True
@@ -151,7 +151,9 @@ class Omegastr:
         return self.__class__(prefix, loop, self.alphabet, False)
 
     def _compare_key(self):
-        """Returns a tuple for comparison: (combined length, length of loop, prefix + loop)"""
+        """
+        Returns a tuple for comparison: (combined length, length of loop, prefix + loop)
+        """
         prefix_len = len(self.prefix)
         loop_len = len(self.loop)
         return prefix_len + loop_len, loop_len, self.prefix + self.loop
@@ -230,12 +232,12 @@ class Omegastr:
         return item in finite_sample
 
     def is_prefix(self, x):
-        """Returns if $u v^\omega$ starts with prefix $x$."""
+        r"""Returns if $u v^\omega$ starts with prefix $x$."""
         return self.__class__.check_prefix(self, x)
 
     @staticmethod
     def check_prefix(omegaword, x):
-        """Returns if $x$ is prefix of $u v^\omega$."""
+        r"""Returns if $x$ is prefix of $u v^\omega$."""
         return omegaword[: len(x)] == x
 
     def subtract_prefix(self, x):
@@ -310,7 +312,9 @@ class OmegastrLoop(Omegastr):
     """UP word sorted by loop then by prefix, length-lexicographically each."""
 
     def _compare_key(self):
-        """Length-lexicographic tuple of the comparison keys: loop first, then prefix."""
+        """
+        Length-lexicographic tuple of the comparison keys: loop first, then prefix.
+        """
         return (self.loop._compare_key(), self.prefix._compare_key())
 
     def __repr__(self):
@@ -346,10 +350,15 @@ def omegaiter(alphabet="ab", limit: Optional[int] = None):
 
 
 class OmegastrPrefix(Omegastr):
-    """Ultimately periodic word ordered length-lexicographically by prefix then by loop."""
+    """
+    Ultimately periodic word ordered length-lexicographically by prefix then by loop.
+    """
 
     def _compare_key(self):
-        """Return comparison key: (combined length, prefix length, combined representation length-lex.)."""
+        """
+        Return comparison key: (combined length, prefix length, combined representation
+        length-lex.).
+        """
         # Lexicographic tuple of the comparison keys: loop first, then prefix
         prefix_len = len(self.prefix)
         loop_len = len(self.loop)
@@ -389,12 +398,18 @@ def omegaiter_prefix(alphabet="ab", limit: Optional[int] = None):
 
 
 class OmegastrExpansion(Omegastr):
-    """Ultimately periodic word order by representation length then by omega-word lexicographically."""
+    """
+    Ultimately periodic word order by representation length then by omega-word
+    lexicographically.
+    """
 
     __slots__ = ("_key",)
 
     def _compare_key(self):
-        """Return compare key: (length of representation, prefix of twice the representation length)."""
+        """
+        Return compare key: (length of representation, prefix of twice the
+        representation length).
+        """
         try:
             return self._key
         except AttributeError:
@@ -429,7 +444,10 @@ def omegaiter_expansion(alphabet="ab", length_limit: Optional[int] = None):
 
 
 class OmegastrLex(Omegastr):
-    """Ultimately periodic word sorted length-lexicographically by combined representation then by loop length."""
+    """
+    Ultimately periodic word sorted length-lexicographically by combined representation
+    then by loop length.
+    """
 
     def _compare_key(self):
         # Lexicographic tuple of the comparison keys: loop first, then prefix

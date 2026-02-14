@@ -1,6 +1,7 @@
-"""
-Implements the equivalence check and search for smallest counterexamples for $omega$-automata.
-Used to simulate the equivalence queries in learning from smallest counterexamples.
+r"""
+Implements the equivalence check and search for smallest counterexamples for
+$\omega$-automata. Used to simulate the equivalence queries in learning from smallest
+counterexamples.
 """
 
 from collections import deque, defaultdict
@@ -54,7 +55,10 @@ def product_of_dba(a: Automaton, b: Automaton) -> Automaton:
 
 
 def find_asymmetric_sccs_product_automaton(automaton):
-    """Find SCCs in a product automaton that has a run rejected by one and accepted by the other automaton."""
+    """
+    Find SCCs in a product automaton that has a run rejected by one and accepted by the
+    other automaton.
+    """
     # partition states
     state_partition = {
         i: {state for state in automaton if not automaton[state][0][1 - i]}
@@ -159,7 +163,8 @@ def smallest_cex_prefix(
     a: Automaton, b: Automaton
 ) -> tuple[bool, OmegastrPrefix | None, bool | None]:
     """
-    Test for equivalence of two DBA and returns smallest by prefix counterexample if they are not.
+    Test for equivalence of two DBA and returns smallest by prefix counterexample if
+    they are not.
 
     Args:
         a: Deterministic Büchi automaton.
@@ -180,7 +185,8 @@ def smallest_cex_lex(
     a: Automaton, b: Automaton
 ) -> tuple[bool, OmegastrLex | None, bool | None]:
     """
-    Test for equivalence of two DBA and returns smallest by representation counterexample if they are not.
+    Test for equivalence of two DBA and returns smallest by representation
+    counterexample if they are not.
 
     Args:
         a: Deterministic Büchi automaton.
@@ -201,7 +207,8 @@ def smallest_cex_expansion(
     a: Automaton, b: Automaton
 ) -> tuple[bool, OmegastrExpansion | None, bool | None]:
     """
-    Test for equivalence of two DBA and returns smallest by omega-expansion counterexample if they are not.
+    Test for equivalence of two DBA and returns smallest by omega-expansion
+    counterexample if they are not.
 
     Args:
         a: Deterministic Büchi automaton.
@@ -221,7 +228,8 @@ def smallest_cex_expansion(
 def smallest_diff_loop_product_automaton(
     automaton: Automaton,
 ) -> tuple[OmegastrLoop, set[str], set[str]] | tuple[None, None, None]:
-    """Compute the smallest loop rejected by one and accepted by the other automaton of a product automaton."""
+    """Compute the smallest loop rejected by one and accepted by the other automaton of
+    a product automaton."""
     alphabet = automaton.get_alphabet()
 
     # Compute SCCs with disagreeing loops and all states in them.
@@ -349,7 +357,8 @@ def smallest_cex_loop(
     a: Automaton, b: Automaton
 ) -> tuple[bool, OmegastrLoop | None, bool | None]:
     """
-    Test for equivalence of two DBA and returns smallest by loop ordering counterexample if they are not.
+    Test for equivalence of two DBA and returns smallest by loop ordering counterexample
+    if they are not.
 
     Args:
         a: Deterministic Büchi automaton.
@@ -376,8 +385,8 @@ def smallest_cex_loop(
     if loop is None:
         return True, None, None
 
-    # Build mapping from indices of the loop to states from which an accepting run with the loop
-    # starts in this state from the index.
+    # Build mapping from indices of the loop to states from which an accepting run with
+    # the loop starts in this state from the index.
     m = len(loop)
     index_states_a = {i: set() for i in range(m)}
     index_states_a[0] = start_points_a

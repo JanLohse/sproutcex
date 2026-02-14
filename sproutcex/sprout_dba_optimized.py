@@ -158,7 +158,9 @@ def aut_dba_optim(
 def buchi_consistent_optim(
     graph: Graph, plus: set[Omegastr], minus: set[Omegastr], infinity_run_cache: dict
 ) -> tuple[bool, None | dict]:
-    """Checks if graph is Büchi consistent and gives info to update cache efficiently."""
+    """
+    Checks if graph is Büchi consistent and gives info to update cache efficiently.
+    """
     escapes_negative = {}
     negative_states = set()
     cache_update = {}

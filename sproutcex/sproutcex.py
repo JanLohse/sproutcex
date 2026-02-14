@@ -1,5 +1,5 @@
-"""
-The core implementation of **SproutCEX** from *Learning $\omega$-Automata
+r"""
+The core implementation of **SproutCEX** from *Learning Deterministic $\omega$-Automata
 from Smallest Counterexamples* by Jan Lohse.
 """
 
@@ -53,7 +53,7 @@ def sproutcex(
     max_steps: Optional[int] = None,
     square_threshold: bool = False,
 ) -> Optional[Automaton]:
-    """
+    r"""
     Attempts to learn an automaton from smallest counterexamples.
     Implements **SproutCEX** from *Learning $\omega$-Automata from
     Smallest Counterexamples* by Jan Lohse.
@@ -84,7 +84,8 @@ def sproutcex(
         if max_steps is not None:
             if not max_steps:
                 print(
-                    f"Aborted after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"Aborted after {query_count} "
+                    f"quer{'y' if query_count == 1 else 'ies'}. "
                     f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
                 )
                 return None
@@ -105,7 +106,8 @@ def sproutcex(
         if cex_result:
             if cex in plus:
                 print(
-                    f"Failed after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"Failed after {query_count} "
+                    f"quer{'y' if query_count == 1 else 'ies'}. "
                     f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
                 )
                 return None
@@ -113,7 +115,8 @@ def sproutcex(
         else:
             if cex in minus:
                 print(
-                    f"Failed after {query_count} quer{'y' if query_count == 1 else 'ies'}. "
+                    f"Failed after {query_count} "
+                    f"quer{'y' if query_count == 1 else 'ies'}. "
                     f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
                 )
                 return None
@@ -122,7 +125,8 @@ def sproutcex(
         if verbose and not found and cex is not None:
             display(automaton)
             print(
-                f"Received the {'positive' if cex_result else 'negative'} counterexample {cex}."
+                f"Received the {'positive' if cex_result else 'negative'} "
+                f"counterexample {cex}."
             )
 
     display(automaton)

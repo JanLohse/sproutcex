@@ -1,4 +1,4 @@
-"""
+r"""
 Implements the **Sprout** algorithm by Bohn and Löding from
 *Constructing Deterministic $\omega$-Automata from Examples
 by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
@@ -38,7 +38,8 @@ def extend_state(
             new_symbol = word[index % len(word)]
             new_prefix = old_prefix + new_symbol
             if new_prefix in graph:
-                # state already exists thus the word that created it has to still be considered
+                # state already exists thus the word that created it has to still be
+                # considered
                 words_left.add(state_to_word[new_prefix])
             else:
                 # add a new state and mark the current word as done
@@ -166,7 +167,9 @@ def infinity_set(graph: Graph, word: Omegastr) -> None | set[str]:
 
 
 def buchi_marking(graph: Graph, minus: set[Omegastr]) -> set[str]:
-    """Computes the accepting states to produce a Buchi marking rejecting negative words."""
+    """
+    Computes the accepting states to produce a Buchi marking rejecting negative words.
+    """
     negative_states = set()
 
     for word in minus:
