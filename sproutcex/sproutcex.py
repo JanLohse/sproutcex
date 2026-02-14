@@ -1,3 +1,8 @@
+"""
+The core implementation of **SproutCEX** from *Learning $\omega$-Automata
+from Smallest Counterexamples* by Jan Lohse.
+"""
+
 import time
 from typing import Literal
 from typing import Optional
@@ -50,6 +55,8 @@ def sproutcex(
 ) -> Optional[Automaton]:
     """
     Attempts to learn an automaton from smallest counterexamples.
+    Implements **SproutCEX** from *Learning $\omega$-Automata from
+    Smallest Counterexamples* by Jan Lohse.
 
     Args:
         target: Automaton that is to be learned.
