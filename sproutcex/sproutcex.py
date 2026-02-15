@@ -54,9 +54,9 @@ def sproutcex(
     square_threshold: bool = False,
 ) -> Optional[Automaton]:
     r"""
-    Attempts to learn an automaton from smallest counterexamples.
-    Implements **SproutCEX** from *Learning $\omega$-Automata from
-    Smallest Counterexamples* by Jan Lohse.
+    Attempts to learn an $\omega$-automaton from smallest counterexamples. Implements
+    **SproutCEX** from *Learning $\omega$-Automata from Smallest Counterexamples* by Jan
+    Lohse.
 
     Args:
         target: Automaton that is to be learned.
@@ -68,6 +68,11 @@ def sproutcex(
 
     Returns:
         An automaton equivalent to the target, if one is found.
+        It will also display the automaton and print the number of equivalence queries
+        performed, including the final one with a positive result. As a guide for the
+        efficiency of **SproutCEX** a proportional reference is printed. This is
+        computed as $|\Sigma| \cdot |Q|^2$, which is the maximum number of examples
+        sufficient for identifying all edges of an automaton.
     """
     sprout_method = CONS_METHODS[cons_method]
     cex_method = ORDERINGS[ordering]

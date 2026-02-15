@@ -24,10 +24,12 @@ def infinity_run_optim(
         infinity_run_cache: Cache or runs in graph.
 
     Returns:
-        - infinite (bool): Is the run infinite or does the word escape?
-        - index/infinite set (int | set[str]): The index in the word that escapes,
+        A tuple (infinite, infinite_set, escape_state):
+
+        - infinite: Is the run infinite or does the word escape?
+        - infinite_set: The index in the word that escapes,
           or the set of infinitely occurring states.
-        - escape state (str | None): State from which word escapes if it does.
+        - escape_state: State from which word escapes if it does.
     """
     initial_state = graph.get_start()
 

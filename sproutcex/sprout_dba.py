@@ -79,10 +79,12 @@ def infinity_run(
         word: Word for which to compute the run.
 
     Returns:
-        - infinite (bool): Is the run infinite or does the word escape?
-        - index/infinite set (int | set[str]): The index in the word that escapes,
+        A tuple (infinite, infinite_set, escape_state):
+
+        - infinite: Is the run infinite or does the word escape?
+        - infinite_set: The index in the word that escapes,
           or the set of infinitely occurring states.
-        - escape state (str | None): State from which word escapes if it does.
+        - escape_state: State from which word escapes if it does.
     """
     prefix = word.prefix
     loop = word.loop
