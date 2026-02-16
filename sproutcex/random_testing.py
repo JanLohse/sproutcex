@@ -5,6 +5,7 @@ TODO
 import pickle
 import random
 import string
+from pathlib import Path
 from typing import Optional
 
 from .graph_functions import Automaton, generate_wdba
@@ -122,7 +123,7 @@ def generate_automata(
     state_high=30,
     automata_count=100,
     seed=None,
-) -> list[Automaton]:
+) -> dict[int, Automaton]:
     """
     Generates a set of wDBA with each's size chosen according to a reciprocal
     distribution.
@@ -141,13 +142,13 @@ def generate_automata(
     if seed is not None:
         random.seed(seed)
 
-    automata = []
+    automata = {}
 
-    for _ in range(automata_count):
+    for i in range(automata_count):
         automaton = generate_automaton(
             alphabet_low, alphabet_high, state_low, state_high
         )
-        automata.append(automaton)
+        automata[i] = automaton
 
     return automata
 
@@ -159,8 +160,9 @@ def load_automata(
     alphabet_high=4,
     state_low=4,
     state_high=30,
-    path="",
-) -> list[Automaton]:
+    path=None,
+    foldername="data",
+) -> dict[int, Automaton]:
     """
     Loads a set of wDBA with each's size chosen according to a reciprocal
     distribution. If such a set is already stored in the path folder it is loaded,
@@ -178,11 +180,18 @@ def load_automata(
     Returns:
         A list of weak deterministic Büchi automata.
     """
+    if path is None:
+        path = Path()
+
     filename = (
         f"automata_{alphabet_low}_{alphabet_high}_{state_low}_{state_high}_"
         f"{automata_count}_{seed}.pkl"
     )
-    filepath = path / filename
+
+    folderpath = path / foldername
+    folderpath.mkdir(exist_ok=True)
+    filepath = folderpath / filename
+
     if filepath.exists():
         with open(filepath, "rb") as f:
             automata = pickle.load(f)
