@@ -1,12 +1,20 @@
 """
-TODO
+Here functions are provided to test SproutCEX on large samples of randomly generated
+weak deterministic Büchi automata. With `perform_sample_test` one can easily generate
+a sample, perform SproutCEX on that set in parallel, and get results to evaluate the
+efficiency of SproutCEX.
 """
 
+import os
 import pickle
 import random
+import sqlite3
 import string
 from pathlib import Path
 from typing import Optional
+
+import pandas as pd
+from joblib import Parallel, delayed
 
 from .graph_functions import Automaton, generate_wdba
 from .sproutcex import ConsMethod, Ordering, CONS_METHODS, ORDERINGS
@@ -153,6 +161,18 @@ def generate_automata(
     return automata
 
 
+def get_file_path(file_name, path=None, folder_name="data") -> Path:
+    """Get the path to a file in the specified path and folder."""
+    if path is None:
+        path = Path()
+
+    folder_path = path / folder_name
+    folder_path.mkdir(exist_ok=True)
+    file_path = folder_path / file_name
+
+    return file_path
+
+
 def load_automata(
     seed,
     automata_count=100,
@@ -161,8 +181,9 @@ def load_automata(
     state_low=4,
     state_high=30,
     path=None,
-    foldername="data",
-) -> dict[int, Automaton]:
+    folder_name="data",
+    return_filename=False,
+) -> dict[int, Automaton] | tuple[dict[int, Automaton], str]:
     """
     Loads a set of wDBA with each's size chosen according to a reciprocal
     distribution. If such a set is already stored in the path folder it is loaded,
@@ -176,30 +197,156 @@ def load_automata(
         state_low: Minimum upper state bound for each automaton.
         state_high: Maximum state count of each automaton.
         path: Where to look for and store the backup of the automaton set.
+        folder_name: Name of the folder where to store pickle object.
+        return_filename: Whether to also return the filename of the automata file.
 
     Returns:
-        A list of weak deterministic Büchi automata.
+        A list of weak deterministic Büchi automata and the filename, if specified.
     """
-    if path is None:
-        path = Path()
-
-    filename = (
+    file_name = (
         f"automata_{alphabet_low}_{alphabet_high}_{state_low}_{state_high}_"
         f"{automata_count}_{seed}.pkl"
     )
 
-    folderpath = path / foldername
-    folderpath.mkdir(exist_ok=True)
-    filepath = folderpath / filename
+    file_path = get_file_path(file_name, path=path, folder_name=folder_name)
 
-    if filepath.exists():
-        with open(filepath, "rb") as f:
+    if file_path.exists():
+        with open(file_path, "rb") as f:
             automata = pickle.load(f)
     else:
         automata = generate_automata(
             alphabet_low, alphabet_high, state_low, state_high, automata_count, seed
         )
-        with open(filepath, "wb") as f:
+        with open(file_path, "wb") as f:
             pickle.dump(automata, f)
 
-    return automata
+    if return_filename:
+        return automata, file_name.split(".")[0]
+    else:
+        return automata
+
+
+def init_db(file_path) -> sqlite3.Connection:
+    """Create a sqlite database."""
+    conn = sqlite3.connect(file_path)
+    cursor = conn.cursor()
+
+    cursor.execute("PRAGMA journal_mode=WAL;")  # enable concurrency
+
+    # Create table if it doesn't exist
+    cursor.execute("""
+   CREATE TABLE IF NOT EXISTS automata_results (
+                                                   idx INTEGER PRIMARY KEY,
+                                                   alphabet_size INTEGER,
+                                                   automaton_size INTEGER,
+                                                   query_count INTEGER
+   )
+   """)
+    conn.commit()
+
+    return conn
+
+
+def get_completed_indices(conn: sqlite3.Connection) -> set[int]:
+    """Get the already computed indices from the sqlite database."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT idx FROM automata_results")
+
+    return set(row[0] for row in cursor.fetchall())
+
+
+def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Path):
+    """Perform SproutCEX and write to sqlite database."""
+    reduced_automaton, query_count = sproutcex_silent(automaton)
+    alphabet_size = len(automaton.get_alphabet())
+    automaton_size = len(reduced_automaton)
+    row = {
+        "idx": idx,
+        "alphabet_size": alphabet_size,
+        "automaton_size": automaton_size,
+        "query_count": query_count,
+    }
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT OR REPLACE INTO automata_results
+        (idx, alphabet_size, automaton_size, query_count)
+        VALUES (:idx, :alphabet_size, :automaton_size, :query_count)
+    """,
+        row,
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+def perform_sample_test(
+    seed: int,
+    automata_count=100,
+    alphabet_low=2,
+    alphabet_high=4,
+    state_low=4,
+    state_high=30,
+    path=None,
+    folder_name="data",
+    core_count: Optional[int] = None,
+) -> pd.DataFrame:
+    """
+    Generates a sample of weak deterministic Büchi automata and performs SproutCEX on
+    all of them. Intermediate results are stored and when calling again it is picked up
+    where it was stopped last time. The computation is performed in parallel.
+
+    Args:
+        seed: Seed set before generating automata.
+        automata_count: Number of automata in the set.
+        alphabet_low: Minimum length of each automaton's alphabet.
+        alphabet_high: Maximum length of each automaton's alphabet.
+        state_low: Minimum upper state bound for each automaton.
+        state_high: Maximum state count of each automaton.
+        path: Where to look for and store the backup of the automaton set.
+        folder_name: Name of the folder where to store pickle object.
+        core_count: How many parallel threads of SproutCEX to perform at once.
+
+    Returns:
+        The database with the results for all runs.
+    """
+    automata, file_name = load_automata(
+        seed=seed,
+        automata_count=automata_count,
+        alphabet_low=alphabet_low,
+        alphabet_high=alphabet_high,
+        state_low=state_low,
+        state_high=state_high,
+        path=path,
+        folder_name=folder_name,
+        return_filename=True,
+    )
+    # Create and connect do database for results.
+    db_path = get_file_path(file_name + ".db", path=path, folder_name=folder_name)
+    connection = init_db(db_path)
+
+    # Get indices of automata that still need processing.
+    completed_indices = get_completed_indices(connection)
+    leftover_indices = list(set(automata) - completed_indices)
+    connection.close()
+
+    # Perform SproutCEX in parallel.
+    if core_count is None:
+        core_count = os.cpu_count()
+
+    Parallel(n_jobs=core_count)(
+        delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
+        for idx in leftover_indices
+    )
+
+    # Load result to pandas database.
+    connection = sqlite3.connect(db_path)
+    results = pd.read_sql("SELECT * FROM automata_results ORDER BY idx", connection)
+    connection.close()
+
+    return results
