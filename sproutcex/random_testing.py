@@ -10,16 +10,40 @@ import pickle
 import random
 import sqlite3
 import string
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
+from webbrowser import Opera
 
+import joblib
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import Parallel
+from joblib import delayed
+from tqdm import tqdm
 
 from .graph_functions import Automaton, generate_wdba
 from .sproutcex import ConsMethod, Ordering, CONS_METHODS, ORDERINGS
 
 FULL_ALPHABET = string.ascii_lowercase
+
+
+@contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager for showing a progress bar during parallel execution."""
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_callback
+        tqdm_object.close()
 
 
 def reciprocal_distribution(a: int, b: int) -> int:
@@ -99,7 +123,7 @@ def sproutcex_silent(
 
 
 def generate_automaton(
-    alphabet_low=2, alphabet_high=4, state_low=4, state_high=30
+    alphabet_low=2, alphabet_high=4, state_low=4, state_high=25
 ) -> Automaton:
     """
     Generates a random wDBA with its size chosen according to a reciprocal
@@ -128,7 +152,7 @@ def generate_automata(
     alphabet_low=2,
     alphabet_high=4,
     state_low=4,
-    state_high=30,
+    state_high=25,
     automata_count=100,
     seed=None,
 ) -> dict[int, Automaton]:
@@ -179,7 +203,7 @@ def load_automata(
     alphabet_low=2,
     alphabet_high=4,
     state_low=4,
-    state_high=30,
+    state_high=25,
     path=None,
     folder_name="data",
     return_filename=False,
@@ -267,22 +291,29 @@ def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Pat
         "query_count": query_count,
     }
 
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    cursor = conn.cursor()
+    for _ in range(10):
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        INSERT OR REPLACE INTO automata_results
-        (idx, alphabet_size, automaton_size, query_count)
-        VALUES (:idx, :alphabet_size, :automaton_size, :query_count)
-    """,
-        row,
-    )
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO automata_results
+                (idx, alphabet_size, automaton_size, query_count)
+                VALUES (:idx, :alphabet_size, :automaton_size, :query_count)
+            """,
+                row,
+            )
 
-    conn.commit()
+            conn.commit()
 
-    conn.close()
+            conn.close()
+
+            break
+        except sqlite3.OperationalError:
+            time.sleep(0.1)
+
 
 
 def perform_sample_test(
@@ -291,7 +322,7 @@ def perform_sample_test(
     alphabet_low=2,
     alphabet_high=4,
     state_low=4,
-    state_high=30,
+    state_high=25,
     path=None,
     folder_name="data",
     core_count: Optional[int] = None,
@@ -333,16 +364,21 @@ def perform_sample_test(
     # Get indices of automata that still need processing.
     completed_indices = get_completed_indices(connection)
     leftover_indices = list(set(automata) - completed_indices)
+    total_automata = len(automata)
+    already_done = len(completed_indices)
     connection.close()
 
     # Perform SproutCEX in parallel.
     if core_count is None:
         core_count = os.cpu_count()
 
-    Parallel(n_jobs=core_count)(
-        delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
-        for idx in leftover_indices
-    )
+    with tqdm_joblib(
+        tqdm(total=total_automata, initial=already_done, desc="Processing automata")
+    ):
+        Parallel(n_jobs=core_count)(
+            delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
+            for idx in leftover_indices
+        )
 
     # Load result to pandas database.
     connection = sqlite3.connect(db_path)
