@@ -11,39 +11,18 @@ import random
 import sqlite3
 import string
 import time
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
-from webbrowser import Opera
 
-import joblib
 import pandas as pd
 from joblib import Parallel
 from joblib import delayed
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from .graph_functions import Automaton, generate_wdba
 from .sproutcex import ConsMethod, Ordering, CONS_METHODS, ORDERINGS
 
 FULL_ALPHABET = string.ascii_lowercase
-
-
-@contextmanager
-def tqdm_joblib(tqdm_object):
-    """Context manager for showing a progress bar during parallel execution."""
-    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
-        def __call__(self, *args, **kwargs):
-            tqdm_object.update(n=self.batch_size)
-            return super().__call__(*args, **kwargs)
-
-    old_callback = joblib.parallel.BatchCompletionCallBack
-    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
-
-    try:
-        yield tqdm_object
-    finally:
-        joblib.parallel.BatchCompletionCallBack = old_callback
-        tqdm_object.close()
 
 
 def reciprocal_distribution(a: int, b: int) -> int:
@@ -294,7 +273,6 @@ def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Pat
     for _ in range(10):
         try:
             conn = sqlite3.connect(db_path)
-            conn.execute("PRAGMA journal_mode=WAL;")
             cursor = conn.cursor()
 
             cursor.execute(
@@ -310,10 +288,9 @@ def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Pat
 
             conn.close()
 
-            break
+            return
         except sqlite3.OperationalError:
             time.sleep(0.1)
-
 
 
 def perform_sample_test(
@@ -360,25 +337,36 @@ def perform_sample_test(
     # Create and connect do database for results.
     db_path = get_file_path(file_name + ".db", path=path, folder_name=folder_name)
     connection = init_db(db_path)
+    connection.execute("PRAGMA journal_mode=WAL;")
 
     # Get indices of automata that still need processing.
-    completed_indices = get_completed_indices(connection)
-    leftover_indices = list(set(automata) - completed_indices)
-    total_automata = len(automata)
-    already_done = len(completed_indices)
+    done_indices = get_completed_indices(connection)
+    leftover_indices = list(set(automata) - done_indices)
+    total_count = len(automata)
+    done_count = len(done_indices)
     connection.close()
 
     # Perform SproutCEX in parallel.
     if core_count is None:
         core_count = os.cpu_count()
 
-    with tqdm_joblib(
-        tqdm(total=total_automata, initial=already_done, desc="Processing automata")
+    parallel = Parallel(
+        n_jobs=core_count, return_as="generator_unordered", batch_size=1
+    )
+
+    generator = parallel(
+        delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
+        for idx in leftover_indices
+    )
+
+    for _ in tqdm(
+        generator,
+        total=total_count,
+        initial=done_count,
+        desc="Processing automata",
+        smoothing=0,
     ):
-        Parallel(n_jobs=core_count)(
-            delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
-            for idx in leftover_indices
-        )
+        pass
 
     # Load result to pandas database.
     connection = sqlite3.connect(db_path)
