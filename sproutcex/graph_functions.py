@@ -4,7 +4,7 @@ Helper classes and functions for handling and displaying graphs and automata.
 
 import random
 from collections import defaultdict
-from typing import Optional, Any
+from typing import Any
 
 from graphviz import Digraph
 
@@ -17,8 +17,8 @@ class Graph(dict[str, Any]):
 
     def __init__(
         self,
-        struct: Optional[dict[str, dict[str, str]]] = None,
-        start_node: Optional[str] = None,
+        struct: None | dict[str, dict[str, str]] = None,
+        start_node: None | str = None,
     ):
         """Initialize the graph."""
         super().__init__(struct or {})
@@ -89,7 +89,7 @@ class Automaton(Graph):
 
     def __init__(
         self,
-        struct: Optional[dict[str, tuple[bool, dict[str, str]]]] = None,
+        struct: None | dict[str, tuple[bool, dict[str, str]]] = None,
         start_node=None,
     ):
         super().__init__(struct, start_node)

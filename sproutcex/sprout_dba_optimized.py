@@ -7,9 +7,9 @@ Uses a cache to speed up run computations.
 
 import heapq
 
-from .graph_functions import Graph, Automaton
-from .omega_language_modelling import llstr, Omegastr
-from .sprout_dba import extend_state, delta_star
+from .graph_functions import Automaton, Graph
+from .omega_language_modelling import Omegastr, llstr
+from .sprout_dba import delta_star, extend_state
 
 
 def infinity_run_optim(
@@ -44,9 +44,13 @@ def infinity_run_optim(
         a = 0
 
     if type(graph[initial_state]) is dict:
-        delta = lambda x: graph[x]
+
+        def delta(x):
+            return graph[x]
     else:
-        delta = lambda x: graph[x][1]
+
+        def delta(x):
+            return graph[x][1]
 
     prefix = word.prefix
     loop = word.loop

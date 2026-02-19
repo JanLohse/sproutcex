@@ -4,22 +4,18 @@ $\omega$-automata. Used to simulate the equivalence queries in learning from sma
 counterexamples.
 """
 
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from itertools import product
-from typing import Any, Optional
 
 from .graph_functions import Automaton
 from .omega_language_modelling import (
-    omegaiter,
-    omegaiter_prefix,
-    omegaiter_lex,
-    omegaiter_expansion,
-    llstr,
-    OmegastrLoop,
     Omegastr,
-    OmegastrPrefix,
-    OmegastrLex,
-    OmegastrExpansion,
+    OmegastrLoop,
+    llstr,
+    omegaiter,
+    omegaiter_expansion,
+    omegaiter_lex,
+    omegaiter_prefix,
 )
 from .sprout_dba import is_accepting
 
@@ -124,7 +120,7 @@ def are_dba_equivalent(a: Automaton, b: Automaton) -> bool:
 
 def smallest_cex(
     a: Automaton, b: Automaton, iterator=omegaiter
-) -> tuple[bool, Optional[Omegastr], Optional[bool]]:
+) -> tuple[bool, None | Omegastr, None | bool]:
     """
     Test for equivalence of two DBA and returns smallest counterexample if they are not.
 
@@ -164,7 +160,7 @@ def smallest_cex(
 
 def smallest_cex_prefix(
     a: Automaton, b: Automaton
-) -> tuple[bool, Optional[Omegastr], Optional[bool]]:
+) -> tuple[bool, None | Omegastr, None | bool]:
     """
     Test for equivalence of two DBA and returns smallest by prefix counterexample if
     they are not.
@@ -186,7 +182,7 @@ def smallest_cex_prefix(
 
 def smallest_cex_lex(
     a: Automaton, b: Automaton
-) -> tuple[bool, Optional[Omegastr], Optional[bool]]:
+) -> tuple[bool, None | Omegastr, None | bool]:
     """
     Test for equivalence of two DBA and returns smallest by representation
     counterexample if they are not.
@@ -208,7 +204,7 @@ def smallest_cex_lex(
 
 def smallest_cex_expansion(
     a: Automaton, b: Automaton
-) -> tuple[bool, Optional[Omegastr], Optional[bool]]:
+) -> tuple[bool, None | Omegastr, None | bool]:
     """
     Test for equivalence of two DBA and returns smallest by omega-expansion
     counterexample if they are not.
@@ -230,7 +226,7 @@ def smallest_cex_expansion(
 
 def smallest_diff_loop_product_automaton(
     automaton: Automaton,
-) -> tuple[Optional[str], Optional[set[str]], Optional[set[str]]]:
+) -> tuple[None | str, None | set[str], None | set[str]]:
     """
     Compute the smallest loop rejected by one and accepted by the other automaton of a
     product automaton.
@@ -370,7 +366,7 @@ def smallest_diff_loop_product_automaton(
 
 def smallest_cex_loop(
     a: Automaton, b: Automaton
-) -> tuple[bool, Optional[Omegastr], Optional[bool]]:
+) -> tuple[bool, None | Omegastr, None | bool]:
     """
     Test for equivalence of two DBA and returns smallest by loop ordering counterexample
     if they are not.

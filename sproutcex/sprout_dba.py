@@ -4,15 +4,11 @@ Implements the **Sprout** algorithm by Bohn and Löding from
 by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
 """
 
-from typing import Optional
-
-from .graph_functions import Graph, Automaton
-from .omega_language_modelling import llstr, Omegastr
+from .graph_functions import Automaton, Graph
+from .omega_language_modelling import Omegastr, llstr
 
 
-def extend_state(
-    loops: set[Omegastr], state="", graph: Optional[Graph] = None
-) -> Graph:
+def extend_state(loops: set[Omegastr], state="", graph: None | Graph = None) -> Graph:
     """
     Extend graph by adding disjunct loops to a specific state.
 
@@ -92,9 +88,13 @@ def infinity_run(
     initial_state = graph.get_start()
 
     if type(graph[initial_state]) is dict:
-        delta = lambda x: graph[x]
+
+        def delta(x):
+            return graph[x]
     else:
-        delta = lambda x: graph[x][1]
+
+        def delta(x):
+            return graph[x][1]
 
     current = initial_state
     for i, symbol in enumerate(prefix):

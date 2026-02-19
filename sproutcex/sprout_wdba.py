@@ -7,14 +7,14 @@ by an Extension of the RPNI Algorithm* for weak deterministic Büchi automata.
 import heapq
 
 from .graph_functions import Automaton, Graph
-from .omega_language_modelling import llstr, Omegastr
+from .omega_language_modelling import Omegastr, llstr
 from .sprout_dba import delta_star
 from .sprout_dba_optimized import (
+    escapes_optim,
+    extend_optim,
     infinity_run_optim,
     infinity_set_optim,
-    extend_optim,
     update_cache,
-    escapes_optim,
 )
 
 
@@ -101,7 +101,10 @@ def wdba_consistent(
 def wdba_marking(
     graph: Graph, minus: set[Omegastr], infinity_run_cache: dict
 ) -> set[str]:
-    """Computes the accepting states to produce a weak Büchi marking rejecting negative words."""
+    """
+    Computes the accepting states to produce a weak Büchi marking rejecting negative
+    words.
+    """
     negative_states = set()
     state_to_scc, scc_to_states = compute_sccs(graph)
 

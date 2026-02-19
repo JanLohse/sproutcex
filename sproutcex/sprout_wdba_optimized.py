@@ -8,13 +8,13 @@ Speeds up the SCC computation by remembering predecessors and successors of node
 import heapq
 
 from .graph_functions import Graph
-from .omega_language_modelling import llstr, Omegastr
+from .omega_language_modelling import Omegastr, llstr
 from .sprout_dba import delta_star
 from .sprout_dba_optimized import (
-    infinity_run_optim,
-    extend_optim,
-    update_cache,
     escapes_optim,
+    extend_optim,
+    infinity_run_optim,
+    update_cache,
 )
 from .sprout_wdba import aut_wdba
 

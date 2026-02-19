@@ -5,7 +5,6 @@ Classes modeling ultimately periodic words with a variety of $\omega$-orderings.
 from collections.abc import Iterable
 from functools import cache
 from itertools import product
-from typing import Optional
 
 
 class llstr(str):
@@ -57,7 +56,7 @@ class llstr(str):
 
     def __add__(self, other):
         """Return a llstr when concatenating with another string."""
-        if type(other) == Omegastr:  # type: ignore
+        if type(other) is Omegastr:  # type: ignore
             return NotImplemented
         return llstr(super().__add__(str(other)))
 
@@ -76,7 +75,7 @@ class llstr(str):
             return llstr(result)
         return result
 
-    def rstrip(self, chars: Optional = None):
+    def rstrip(self, chars=None):
         """Return a llstr with trailing white space removed."""
         stripped = super().rstrip(chars)
         return llstr(stripped)
@@ -91,7 +90,7 @@ class Omegastr:
     r"""The loop $v$ of $u v^\omega$."""
 
     def __init__(
-        self, prefix: str, loop: str, alphabet: Optional[Iterable] = None, reduce=True
+        self, prefix: str, loop: str, alphabet: None | Iterable = None, reduce=True
     ):
         """Creates a new UP word from its prefix and loop."""
         # Make prefix and loop llstr for comparison purposes.
@@ -333,15 +332,15 @@ def _omegaiter_length(alphabet: str, length: int):
         word = Omegastr(s[:-1], s[-1])
         if len(word) == length:
             output_strings.append(word)
-    for l in range(2, length + 1):
+    for loop_length in range(2, length + 1):
         for s in length_strings:
-            word = Omegastr(s[: length - l], s[-l:])
+            word = Omegastr(s[: length - loop_length], s[-loop_length:])
             if len(word) == length:
                 output_strings.append(word)
     return output_strings
 
 
-def omegaiter(alphabet="ab", limit: Optional[int] = None):
+def omegaiter(alphabet="ab", limit: None | int = None):
     """Iterate over reduced Omegastr in order."""
     length = 1
     while limit is None or length <= limit:
@@ -380,16 +379,16 @@ def _omegaiter_prefix_length(alphabet: str, length: int):
         word = OmegastrPrefix("", s)
         if len(word) == length:
             output_strings.append(word)
-    for l in range(1, length):
+    for loop_length in range(1, length):
         for s in length_strings:
-            word = OmegastrPrefix(s[:l], s[l:])
+            word = OmegastrPrefix(s[:loop_length], s[loop_length:])
             if len(word) == length:
                 output_strings.append(word)
 
     return output_strings
 
 
-def omegaiter_prefix(alphabet="ab", limit: Optional[int] = None):
+def omegaiter_prefix(alphabet="ab", limit: None | int = None):
     """Iterate over reduced Omegastr in prefix order."""
     length = 1
     while limit is None or length <= limit:
@@ -427,15 +426,15 @@ def _omegaiter_expansion_length(alphabet: str, length: int):
     """Returns all UP words of fixed length in expansion order."""
     length_strings = list()
     for s in map("".join, product(alphabet, repeat=length)):
-        for l in range(length):
-            word = OmegastrExpansion(s[:l], s[l:])
+        for loop_length in range(length):
+            word = OmegastrExpansion(s[:loop_length], s[loop_length:])
             if len(word) == length:
                 length_strings.append(word)
 
     return sorted(length_strings)
 
 
-def omegaiter_expansion(alphabet="ab", length_limit: Optional[int] = None):
+def omegaiter_expansion(alphabet="ab", length_limit: None | int = None):
     """Iterate over UP words in expansion order."""
     length = 1
     while length_limit is None or length <= length_limit:
@@ -464,8 +463,8 @@ def _omegaiter_lex_length(alphabet: str, length: int):
     output_strings = list()
     for s in product(alphabet, repeat=length):
         s = "".join(s)
-        for l in range(1, length):
-            word = OmegastrLex(s[: length - l], s[-l:])
+        for loop_length in range(1, length):
+            word = OmegastrLex(s[: length - loop_length], s[-loop_length:])
             if len(word) == length:
                 output_strings.append(word)
         word = OmegastrLex("", s)
@@ -475,7 +474,7 @@ def _omegaiter_lex_length(alphabet: str, length: int):
     return output_strings
 
 
-def omegaiter_lex(alphabet="ab", limit: Optional[int] = None):
+def omegaiter_lex(alphabet="ab", limit: None | int = None):
     """Iterates over UP words in representation length-lex order."""
     length = 1
     while limit is None or length <= limit:

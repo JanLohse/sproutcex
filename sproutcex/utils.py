@@ -1,11 +1,13 @@
 import random
-from typing import Optional, Iterable
+from typing import Iterable
+
 
 class FastRandomBag:
     """A simple list wrapper to pop random items from a bag."""
+
     data: list
 
-    def __init__(self, items: Optional[Iterable]=None):
+    def __init__(self, items: None | Iterable = None):
         self.data = list(items) if items else []
 
     def add(self, item):

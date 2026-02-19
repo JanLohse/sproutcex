@@ -5,7 +5,6 @@ from Smallest Counterexamples* by Jan Lohse.
 
 import time
 from typing import Literal
-from typing import Optional
 
 from IPython.core.display_functions import display
 
@@ -13,9 +12,9 @@ from .graph_functions import Automaton
 from .smallest_cex import (
     smallest_cex,
     smallest_cex_expansion,
+    smallest_cex_lex,
     smallest_cex_loop,
     smallest_cex_prefix,
-    smallest_cex_lex,
 )
 from .sprout_dba import sprout_dba
 from .sprout_dba_optimized import sprout_dba_optim
@@ -50,9 +49,9 @@ def sproutcex(
     cons_method: ConsMethod = "dba",
     ordering: Ordering = "total",
     verbose: bool = False,
-    max_steps: Optional[int] = None,
+    max_steps: None | int = None,
     square_threshold: bool = False,
-) -> Optional[Automaton]:
+) -> None | Automaton:
     r"""
     Attempts to learn an $\omega$-automaton from smallest counterexamples. Implements
     **SproutCEX** from *Learning $\omega$-Automata from Smallest Counterexamples* by Jan

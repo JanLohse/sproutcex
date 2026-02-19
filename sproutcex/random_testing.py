@@ -15,15 +15,13 @@ import sqlite3
 import string
 import time
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
-from joblib import Parallel
-from joblib import delayed
+from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .graph_functions import Automaton, generate_wdba
-from .sproutcex import ConsMethod, Ordering, CONS_METHODS, ORDERINGS
+from .sproutcex import CONS_METHODS, ORDERINGS, ConsMethod, Ordering
 
 FULL_ALPHABET = string.ascii_lowercase
 
@@ -51,9 +49,9 @@ def sproutcex_silent(
     target: Automaton,
     cons_method: ConsMethod = "dba",
     ordering: Ordering = "total",
-    max_steps: Optional[int] = None,
+    max_steps: None | int = None,
     square_threshold: bool = False,
-) -> tuple[Optional[Automaton], int] | tuple[None, None]:
+) -> tuple[None | Automaton, int] | tuple[None, None]:
     r"""
     Attempts to learn an $\omega$-automaton from smallest counterexamples. Implements
     **SproutCEX** from *Learning $\omega$-Automata from Smallest Counterexamples* by Jan
@@ -305,7 +303,7 @@ def perform_sample_test(
     state_high=25,
     path=None,
     folder_name="data",
-    core_count: Optional[int] = None,
+    core_count: None | int = None,
 ) -> tuple[pd.DataFrame, set[Automaton]]:
     """
     Generates a sample of weak deterministic Büchi automata and performs SproutCEX on
