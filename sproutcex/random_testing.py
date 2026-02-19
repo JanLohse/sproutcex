@@ -3,6 +3,9 @@ Here functions are provided to test SproutCEX on large samples of randomly gener
 weak deterministic Büchi automata. With `perform_sample_test` one can easily generate
 a sample, perform SproutCEX on that set in parallel, and get results to evaluate the
 efficiency of SproutCEX.
+
+TODO: add kwargs to methods
+TODO: load-only option
 """
 
 import os
@@ -303,7 +306,7 @@ def perform_sample_test(
     path=None,
     folder_name="data",
     core_count: Optional[int] = None,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, set[Automaton]]:
     """
     Generates a sample of weak deterministic Büchi automata and performs SproutCEX on
     all of them. Intermediate results are stored and when calling again it is picked up
@@ -321,7 +324,7 @@ def perform_sample_test(
         core_count: How many parallel threads of SproutCEX to perform at once.
 
     Returns:
-        The database with the results for all runs.
+        The database with the results for all runs and the set of automata.
     """
     automata, file_name = load_automata(
         seed=seed,
@@ -373,4 +376,4 @@ def perform_sample_test(
     results = pd.read_sql("SELECT * FROM automata_results ORDER BY idx", connection)
     connection.close()
 
-    return results
+    return results, automata
