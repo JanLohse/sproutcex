@@ -5,6 +5,7 @@ Classes modeling ultimately periodic words with a variety of $\omega$-orderings.
 from collections.abc import Iterable
 from functools import cache
 from itertools import product
+from typing import Iterator
 
 
 class llstr(str):
@@ -307,22 +308,8 @@ class Omegastr:
         return set(self.prefix) | set(self.loop)
 
 
-class OmegastrLoop(Omegastr):
-    """UP word sorted by loop then by prefix, length-lexicographically each."""
-
-    def _compare_key(self):
-        """
-        Length-lexicographic tuple of the comparison keys: loop first, then prefix.
-        """
-        return (self.loop._compare_key(), self.prefix._compare_key())
-
-    def __repr__(self):
-        """Returns a string representation of the UP word."""
-        return f"ωˡ({self.prefix if self.prefix else 'ε'}, {self.loop})"
-
-
 @cache
-def _omegaiter_length(alphabet: str, length: int):
+def _omegaiter_length(alphabet: str, length: int) -> list[Omegastr]:
     """Compute all Omegastrs of a fixed length."""
     length_strings = []
     output_strings = []
@@ -340,7 +327,7 @@ def _omegaiter_length(alphabet: str, length: int):
     return output_strings
 
 
-def omegaiter(alphabet="ab", limit: None | int = None):
+def omegaiter(alphabet="ab", limit: None | int = None) -> Iterator[Omegastr]:
     """Iterate over reduced Omegastr in order."""
     length = 1
     while limit is None or length <= limit:
@@ -348,10 +335,22 @@ def omegaiter(alphabet="ab", limit: None | int = None):
         length += 1
 
 
+class OmegastrLoop(Omegastr):
+    """UP word sorted by loop then by prefix, length-lexicographically each."""
+
+    def _compare_key(self):
+        """
+        Length-lexicographic tuple of the comparison keys: loop first, then prefix.
+        """
+        return (self.loop._compare_key(), self.prefix._compare_key())
+
+    def __repr__(self):
+        """Returns a string representation of the UP word."""
+        return f"ωˡ({self.prefix if self.prefix else 'ε'}, {self.loop})"
+
+
 class OmegastrPrefix(Omegastr):
-    """
-    Ultimately periodic word ordered length-lexicographically by prefix then by loop.
-    """
+    r"""An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |u|, uv_{lex})$."""
 
     def _compare_key(self):
         """
@@ -369,7 +368,7 @@ class OmegastrPrefix(Omegastr):
 
 
 @cache
-def _omegaiter_prefix_length(alphabet: str, length: int):
+def _omegaiter_prefix_length(alphabet: str, length: int) -> list[OmegastrPrefix]:
     """Iterate over reduced Omegastrs of fixed length in prefix order."""
     length_strings = []
     output_strings = []
@@ -388,7 +387,9 @@ def _omegaiter_prefix_length(alphabet: str, length: int):
     return output_strings
 
 
-def omegaiter_prefix(alphabet="ab", limit: None | int = None):
+def omegaiter_prefix(
+    alphabet="ab", limit: None | int = None
+) -> Iterator[OmegastrPrefix]:
     """Iterate over reduced Omegastr in prefix order."""
     length = 1
     while limit is None or length <= limit:
@@ -397,9 +398,8 @@ def omegaiter_prefix(alphabet="ab", limit: None | int = None):
 
 
 class OmegastrExpansion(Omegastr):
-    """
-    Ultimately periodic word order by representation length then by omega-word
-    lexicographically.
+    r"""
+    An ultimately periodic word $u v^\omega$ sorted by $(|uv|, (uv^\omega)_{lex})$
     """
 
     __slots__ = ("_key",)
@@ -422,8 +422,9 @@ class OmegastrExpansion(Omegastr):
 
 
 @cache
-def _omegaiter_expansion_length(alphabet: str, length: int):
+def _omegaiter_expansion_length(alphabet: str, length: int) -> list[OmegastrExpansion]:
     """Returns all UP words of fixed length in expansion order."""
+
     length_strings = list()
     for s in map("".join, product(alphabet, repeat=length)):
         for loop_length in range(length):
@@ -434,7 +435,9 @@ def _omegaiter_expansion_length(alphabet: str, length: int):
     return sorted(length_strings)
 
 
-def omegaiter_expansion(alphabet="ab", length_limit: None | int = None):
+def omegaiter_expansion(
+    alphabet="ab", length_limit: None | int = None
+) -> Iterator[OmegastrExpansion]:
     """Iterate over UP words in expansion order."""
     length = 1
     while length_limit is None or length <= length_limit:
@@ -443,9 +446,8 @@ def omegaiter_expansion(alphabet="ab", length_limit: None | int = None):
 
 
 class OmegastrLex(Omegastr):
-    """
-    Ultimately periodic word sorted length-lexicographically by combined representation
-    then by loop length.
+    r"""
+    An ultimately periodic word $u v^\omega$ sorted by $(|uv|, (uv)_{lex}, |v|)$.
     """
 
     def _compare_key(self):
@@ -458,7 +460,7 @@ class OmegastrLex(Omegastr):
 
 
 @cache
-def _omegaiter_lex_length(alphabet: str, length: int):
+def _omegaiter_lex_length(alphabet: str, length: int) -> list[OmegastrLex]:
     """Returns all UP words of fixed length in representation length-lex order."""
     output_strings = list()
     for s in product(alphabet, repeat=length):
@@ -474,7 +476,7 @@ def _omegaiter_lex_length(alphabet: str, length: int):
     return output_strings
 
 
-def omegaiter_lex(alphabet="ab", limit: None | int = None):
+def omegaiter_lex(alphabet="ab", limit: None | int = None) -> Iterator[OmegastrLex]:
     """Iterates over UP words in representation length-lex order."""
     length = 1
     while limit is None or length <= limit:

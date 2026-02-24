@@ -41,6 +41,7 @@ def wdba_consistent_optim(
     negative_states_update = negative_states.copy()
     cache_update = {}
 
+    # Find states that have to be rejecting and exit strings of negative words.
     for word in minus & affected_words:
         success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
@@ -56,6 +57,7 @@ def wdba_consistent_optim(
                 return False, None, None, None, None, None
             escapes_negative_update.setdefault(escape_prefix, set()).add(exit_string)
 
+    # Test if there are conflicts between positive and negative words.
     for word in plus & affected_words:
         success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
@@ -75,6 +77,7 @@ def wdba_consistent_optim(
                 return False, None, None, None, None, None
             escapes_positive_update.setdefault(escape_prefix, set()).add(exit_string)
 
+    # Check for weakness.
     if positive_states_update & negative_states_update:
         return False, None, None, None, None, None
 
@@ -152,6 +155,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
         except KeyError:
             continue
 
+        # Terminate if threshold reached.
         if len(u) > threshold:
             return aut_wdba(
                 extend_optim(graph_dict, plus, infinity_run_cache),
@@ -162,6 +166,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
         escapes_positive_u_hat_a = escapes_positive.pop(u_hat_a, set())
         escapes_negative_u_hat_a = escapes_negative.pop(u_hat_a, set())
 
+        # Search for target of edge in existing states.
         found_edge = False
         for q in sorted(graph_dict):
             graph_dict[u_hat][a] = q
@@ -189,6 +194,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
                 q,
             )
             if consistent:
+                # Update information used to check weakness.
                 infinity_run_cache = cache_update
                 positive_states = positive_states_update
                 negative_states = negative_states_update
@@ -220,6 +226,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
                 found_edge = True
                 break
 
+        # Add new state if no target was found.
         if not found_edge:
             graph_dict[u_hat_a] = {}
             graph_dict[u_hat][a] = u_hat_a
@@ -237,6 +244,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
 
             update_cache(graph_dict, affected_words, infinity_run_cache)
 
+        # Update run cache and information about escaping words.
         escapes_optim(
             graph_dict,
             plus,

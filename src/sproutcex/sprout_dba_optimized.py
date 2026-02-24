@@ -171,6 +171,7 @@ def buchi_consistent_optim(
     negative_states = set()
     cache_update = {}
 
+    # Find states that have to be rejecting and exit strings of negative words.
     for word in minus:
         success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
@@ -182,6 +183,7 @@ def buchi_consistent_optim(
             else:
                 escapes_negative[state] = {word[result:]}
 
+    # Test if there are conflicts between positive and negative words.
     for word in plus:
         success, result, state = infinity_run_optim(graph, word, infinity_run_cache)
         cache_update[word] = (success, result, state)
@@ -232,6 +234,7 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
         )
     else:
         threshold = max([len(x) for x in samples] + [0]) * 2 - 1
+
     infinity_run_cache = {}
     escaping_edge_to_words = {}
     for word in plus | minus:
@@ -241,6 +244,7 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
     escaping_set = {word[0] for word in plus}
     escaping_list = list(escaping_set)
     heapq.heapify(escaping_list)
+
     while escaping_list:
         ua = heapq.heappop(escaping_list)
         escaping_set.remove(ua)
@@ -254,6 +258,7 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
         except KeyError:
             continue
 
+        # Terminate if threshold reached.
         if len(u) > threshold:
             return aut_dba_optim(
                 extend_optim(graph, plus, infinity_run_cache),
@@ -261,6 +266,7 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
                 infinity_run_cache,
             )
 
+        # Search for target of edge in existing states.
         found_edge = False
         for q in sorted(graph):
             graph[u_hat][a] = q
@@ -273,11 +279,13 @@ def sprout_dba_optim(plus, minus, square_threshold=False):
                 found_edge = True
                 break
 
+        # Add new state if no target was found.
         if not found_edge:
             graph[u_hat_a] = {}
             graph[u_hat][a] = u_hat_a
             update_cache(graph, affected_words, infinity_run_cache)
 
+        # Update run cache and information about escaping words.
         escapes_optim(
             graph,
             plus,

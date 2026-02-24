@@ -112,9 +112,11 @@ def infinity_run(
         if symbol in delta(current):
             current = delta(current)[symbol]
         else:
+            # The word escaped.
             return False, count, current
         sequence.append(current)
         if (current, index) in index_map:
+            # The loop has been closed.
             return True, set(sequence[index_map[(current, index)] :]), None
         index_map[(current, index)] = len(sequence)
         index = (index + 1) % loop_len
@@ -212,6 +214,7 @@ def buchi_consistent(graph: Graph, plus: set[Omegastr], minus: set[Omegastr]) ->
     escapes_negative = {}
     negative_states = set()
 
+    # Find states that have to be rejecting and exit strings of negative words.
     for word in minus:
         success, result, state = infinity_run(graph, word)
         if success:
@@ -219,6 +222,7 @@ def buchi_consistent(graph: Graph, plus: set[Omegastr], minus: set[Omegastr]) ->
         else:
             escapes_negative.setdefault(state, set()).add(word[result:])
 
+    # Test if there are conflicts between positive and negative words.
     for word in plus:
         success, result, state = infinity_run(graph, word)
         if success:
@@ -269,11 +273,13 @@ def sprout_dba(
         u = ua[:-1]
         a = ua[-1]
 
+        # Terminate if threshold reached.
         if len(u) > threshold:
             return aut_dba(extend(graph, plus), minus)
 
         u_hat = delta_star(graph, initial_state, u)
 
+        # Search for target of edge in existing states.
         found_edge = False
         for q in sorted(graph):
             graph[u_hat][a] = q
@@ -282,6 +288,7 @@ def sprout_dba(
                 found_edge = True
                 break
 
+        # Add new state if no target was found.
         if not found_edge:
             u_hat_a = u_hat + a
             graph[u_hat_a] = {}
