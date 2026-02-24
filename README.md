@@ -19,16 +19,29 @@ pythonic code and keeping the dependencies minimal.
 ## Usage
 
 As supplementary material for the thesis we provide the jupyter notebook
-`thesis_examples.ipynb`. Simply clone or download the repository, install the
-requirements using `pip install -r requirements.txt`, and then launch the notebook
-using `jupyter notebook thesis_examples.ipynb`. It includes a selection of examples
-for using **SproutCEX**, both from the thesis and additional ones.
+`thesis_examples.ipynb`. Simply clone or download the repository, install the package
+using
+```shell
+pip install .
+```
+and then launch the notebook using
+```shell
+jupyter notebook thesis_examples.ipynb
+```
+The notebook includes a selection of examples for using **SproutCEX**, both from the
+thesis and additional ones.
 
 We also provide the notebook `random_test_runner.ipynb`. Running it will generate a
 sample of random *weak deterministic Büchi automata*, try to learn them using
 **SproutCEX**, and perform a basic statistical analysis of the results. The statistical
 analysis in Section TODO has been performed with the default parameters specified in the
-notebook, and thus can be verified easily.
+notebook, and thus can be verified easily. The computation can be quite taxing, because
+of which we included precomputed results in the `data` folder.
+
+Alternatively one can also just install the package directly using
+```shell
+pip install git+https://github.com/JanLohse/sproutcex
+```
 
 ## Statistical results for SproutCEX
 
