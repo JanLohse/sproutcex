@@ -21,11 +21,11 @@ pythonic code and keeping the dependencies minimal.
 As supplementary material for the thesis we provide the jupyter notebook
 `thesis_examples.ipynb`. Simply clone or download the repository, install the package
 using
-```shell
+```sh
 pip install .
 ```
 and then launch the notebook using
-```shell
+```sh
 jupyter notebook thesis_examples.ipynb
 ```
 The notebook includes a selection of examples for using **SproutCEX**, both from the
@@ -39,7 +39,7 @@ notebook, and thus can be verified easily. The computation can be quite taxing, 
 of which we included precomputed results in the `data` folder.
 
 Alternatively one can also just install the package directly using
-```shell
+```sh
 pip install git+https://github.com/JanLohse/sproutcex
 ```
 
