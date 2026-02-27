@@ -34,7 +34,7 @@ thesis and additional ones.
 We also provide the notebook `random_test_runner.ipynb`. Running it will generate a
 sample of random *weak deterministic Büchi automata*, try to learn them using
 **SproutCEX**, and perform a basic statistical analysis of the results. The statistical
-analysis in Section TODO has been performed with the default parameters specified in the
+analysis in Section 4.3 has been performed with the default parameters specified in the
 notebook, and thus can be verified easily. The computation can be quite taxing, because
 of which we included precomputed results in the `data` folder.
 
@@ -42,9 +42,3 @@ Alternatively one can also just install the package directly using
 ```sh
 pip install git+https://github.com/JanLohse/sproutcex
 ```
-
-## Statistical results for SproutCEX
-
-Here we give some basic statistical results for SproutCEX.
-
-TODO
