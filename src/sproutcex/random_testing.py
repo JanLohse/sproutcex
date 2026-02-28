@@ -1,11 +1,8 @@
 """
-Here functions are provided to test SproutCEX on large samples of randomly generated
+Here functions are provided to test **SproutCEX** on large samples of randomly generated
 weak deterministic Büchi automata. With `perform_sample_test` one can easily generate
-a sample, perform SproutCEX on that set in parallel, and get results to evaluate the
-efficiency of SproutCEX.
-
-TODO: add kwargs to methods
-TODO: load-only option
+a sample, perform **SproutCEX** on that set in parallel, and get results to evaluate the
+efficiency of **SproutCEX**.
 """
 
 import os
@@ -14,6 +11,7 @@ import random
 import sqlite3
 import string
 import time
+from itertools import product
 from pathlib import Path
 
 import pandas as pd
@@ -48,7 +46,7 @@ def reciprocal_distribution(a: int, b: int) -> int:
 def sproutcex_silent(
     target: Automaton,
     cons_method: ConsMethod = "dba",
-    ordering: Ordering = "total",
+    ordering: Ordering = "default",
     max_steps: None | int = None,
     square_threshold: bool = False,
 ) -> tuple[None | Automaton, int] | tuple[None, None]:
@@ -230,46 +228,83 @@ def load_automata(
         return automata
 
 
-def init_db(file_path) -> sqlite3.Connection:
-    """Create a sqlite database."""
+def python_to_sqlite_type(value):
+    """Get fitting sqlite data type."""
+    if isinstance(value, bool):
+        return "INTEGER"
+    if isinstance(value, int):
+        return "INTEGER"
+    if isinstance(value, float):
+        return "REAL"
+    return "TEXT"
+
+
+def init_db(file_path, grid_parameters: dict[str, list] | None):
+    """Create a sqlite database for testing results."""
     conn = sqlite3.connect(file_path)
     cursor = conn.cursor()
 
-    cursor.execute("PRAGMA journal_mode=WAL;")  # enable concurrency
+    cursor.execute("PRAGMA journal_mode=WAL;")
 
-    # Create table if it doesn't exist
-    cursor.execute("""
-   CREATE TABLE IF NOT EXISTS automata_results (
-                                                   idx INTEGER PRIMARY KEY,
-                                                   alphabet_size INTEGER,
-                                                   automaton_size INTEGER,
-                                                   query_count INTEGER
-   )
-   """)
+    param_columns = ""
+    param_pk = ""
+
+    if grid_parameters:
+        for name, values in grid_parameters.items():
+            examples_value = values[0]
+            col_type = python_to_sqlite_type(examples_value)
+            param_columns += f"{name} {col_type},\n"
+            param_pk += f", {name}"
+
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS automata_results (
+            idx INTEGER,
+            {param_columns}
+            alphabet_size INTEGER,
+            automaton_size INTEGER,
+            query_count INTEGER,
+            PRIMARY KEY (idx{param_pk})
+        )
+    """)
+
     conn.commit()
-
     return conn
 
 
-def get_completed_indices(conn: sqlite3.Connection) -> set[int]:
+def get_completed_pairs(conn, param_names):
     """Get the already computed indices from the sqlite database."""
+    cols = ", ".join(["idx"] + param_names)
     cursor = conn.cursor()
-    cursor.execute("SELECT idx FROM automata_results")
+    cursor.execute(f"SELECT {cols} FROM automata_results")
 
-    return set(row[0] for row in cursor.fetchall())
+    return set(cursor.fetchall())
 
 
-def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Path):
+def process_single_automaton_worker(
+    idx: int,
+    automaton: Automaton,
+    db_path: Path,
+    params: dict,
+):
     """Perform SproutCEX and write to sqlite database."""
-    reduced_automaton, query_count = sproutcex_silent(automaton)
+    reduced_automaton, query_count = sproutcex_silent(automaton, **params)
+
+    if reduced_automaton is None:
+        return
+
     alphabet_size = len(automaton.get_alphabet())
     automaton_size = len(reduced_automaton)
+
     row = {
         "idx": idx,
         "alphabet_size": alphabet_size,
         "automaton_size": automaton_size,
         "query_count": query_count,
+        **params,
     }
+
+    columns = ", ".join(row.keys())
+    placeholders = ", ".join(f":{k}" for k in row.keys())
 
     for _ in range(10):
         try:
@@ -277,21 +312,31 @@ def process_single_automaton_worker(idx: int, automaton: Automaton, db_path: Pat
             cursor = conn.cursor()
 
             cursor.execute(
-                """
+                f"""
                 INSERT OR REPLACE INTO automata_results
-                (idx, alphabet_size, automaton_size, query_count)
-                VALUES (:idx, :alphabet_size, :automaton_size, :query_count)
-            """,
+                ({columns})
+                VALUES ({placeholders})
+                """,
                 row,
             )
 
             conn.commit()
-
             conn.close()
-
             return
+
         except sqlite3.OperationalError:
             time.sleep(0.1)
+
+
+def expand_grid(grid_parameters: dict[str, list] | None) -> list[dict]:
+    """Get all param pairs for the grid parameters."""
+    if not grid_parameters:
+        return [{}]
+
+    keys = list(grid_parameters.keys())
+    values_product = product(*(grid_parameters[k] for k in keys))
+
+    return [dict(zip(keys, values)) for values in values_product]
 
 
 def perform_sample_test(
@@ -304,7 +349,8 @@ def perform_sample_test(
     path=None,
     folder_name="data",
     core_count: None | int = None,
-) -> tuple[pd.DataFrame, set[Automaton]]:
+    grid_parameters: dict[str, list] | None = None,
+) -> tuple[pd.DataFrame, dict[int, Automaton]]:
     """
     Generates a sample of weak deterministic Büchi automata and performs SproutCEX on
     all of them. Intermediate results are stored and when calling again it is picked up
@@ -320,6 +366,8 @@ def perform_sample_test(
         path: Where to look for and store the backup of the automaton set.
         folder_name: Name of the folder where to store pickle object.
         core_count: How many parallel threads of SproutCEX to perform at once.
+        grid_parameters: A dict with parameters and values to be passed as kwargs to
+            `sproutcex_silent`.
 
     Returns:
         The database with the results for all runs and the set of automata.
@@ -335,35 +383,68 @@ def perform_sample_test(
         folder_name=folder_name,
         return_filename=True,
     )
-    # Create and connect do database for results.
-    db_path = get_file_path(file_name + ".db", path=path, folder_name=folder_name)
-    connection = init_db(db_path)
-    connection.execute("PRAGMA journal_mode=WAL;")
 
-    # Get indices of automata that still need processing.
-    done_indices = get_completed_indices(connection)
-    leftover_indices = list(set(automata) - done_indices)
-    total_count = len(automata)
-    done_count = len(done_indices)
+    # Create and connect do database for results.
+    if grid_parameters:
+        param_string = f"_{'_'.join(grid_parameters.keys())}"
+    else:
+        param_string = ""
+    db_path = get_file_path(
+        file_name + param_string + ".db", path=path, folder_name=folder_name
+    )
+    connection = init_db(db_path, grid_parameters)
+
+    # Get param pairs to process.
+    param_grid = expand_grid(grid_parameters)
+    param_names = list(grid_parameters.keys()) if grid_parameters else []
+
+    done_pairs = get_completed_pairs(connection, param_names)
     connection.close()
+
+    # Get indices of tasks that still need processing.
+    tasks: list[tuple[int, dict]] = []
+
+    def normalize_param_value(v):
+        if isinstance(v, bool):
+            return int(v)
+        return v
+
+    for idx in automata.keys():
+        for params in param_grid:
+            key = (
+                idx,
+                *[normalize_param_value(params.get(name)) for name in param_names],
+            )
+            if key not in done_pairs:
+                tasks.append((idx, params))
+
+    total_expected = len(automata) * len(param_grid)
+    already_done = len(done_pairs)
 
     # Perform SproutCEX in parallel.
     if core_count is None:
         core_count = os.cpu_count()
 
     parallel = Parallel(
-        n_jobs=core_count, return_as="generator_unordered", batch_size=1
+        n_jobs=core_count,
+        return_as="generator_unordered",
+        batch_size=1,
     )
 
     generator = parallel(
-        delayed(process_single_automaton_worker)(idx, automata[idx], db_path)
-        for idx in leftover_indices
+        delayed(process_single_automaton_worker)(
+            idx,
+            automata[idx],
+            db_path,
+            params,
+        )
+        for idx, params in tasks
     )
 
     for _ in tqdm(
         generator,
-        total=total_count,
-        initial=done_count,
+        total=total_expected,
+        initial=already_done,
         desc="Processing automata",
         smoothing=0,
     ):
@@ -371,7 +452,10 @@ def perform_sample_test(
 
     # Load result to pandas database.
     connection = sqlite3.connect(db_path)
-    results = pd.read_sql("SELECT * FROM automata_results ORDER BY idx", connection)
+    results = pd.read_sql(
+        "SELECT * FROM automata_results ORDER BY idx",
+        connection,
+    )
     connection.close()
 
     return results, automata

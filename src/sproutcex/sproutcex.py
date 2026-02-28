@@ -31,7 +31,7 @@ CONS_METHODS = {
 }
 
 ORDERINGS = {
-    "total": smallest_cex,
+    "default": smallest_cex,
     "loop": smallest_cex_loop,
     "prefix": smallest_cex_prefix,
     "lex": smallest_cex_lex,
@@ -41,13 +41,13 @@ ORDERINGS = {
 ConsMethod = Literal[
     "dba", "dba_optim", "dba_legacy", "wdba", "wdba_optim", "wdba_legacy"
 ]
-Ordering = Literal["total", "loop", "prefix", "lex", "expansion"]
+Ordering = Literal["default", "loop", "prefix", "lex", "expansion"]
 
 
 def sproutcex(
     target: Automaton,
     cons_method: ConsMethod = "dba",
-    ordering: Ordering = "total",
+    ordering: Ordering = "default",
     verbose: bool = False,
     max_steps: None | int = None,
     square_threshold: bool = False,

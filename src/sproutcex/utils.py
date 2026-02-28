@@ -5,6 +5,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from pandas import DataFrame
 
+plt.style.use("default")
+
 
 class FastRandomBag:
     """A simple list wrapper to pop random items from a bag."""
@@ -54,11 +56,10 @@ class FastRandomBag:
 
 def plot_param_with_power_fit(
     df: DataFrame,
-    criterium="mean",
+    criterion="mean",
     monotonic=False,
     group_by="alphabet_size",
     output_typst=False,
-    group_label="|Sigma|",
 ):
     r"""
     Takes a dataframe and plots the data with a power law fit $a \cdot x^b$.
@@ -75,6 +76,7 @@ def plot_param_with_power_fit(
       width: 12cm,
       height: 8cm,
       criterium: "Average",
+      param_name: none,
     ) = {
       lq.diagram(
         width: width,
@@ -89,7 +91,7 @@ def plot_param_with_power_fit(
                 figure_data.x,
                 figure_data.y,
                 stroke: none,
-                label: $#figure_data.param_name = #figure_data.param_value$,
+                label: $#param_name #figure_data.param_value$,
               ),
               lq.plot(
                 lq.linspace(calc.min(..figure_data.x), calc.max(..figure_data.x)),
@@ -108,24 +110,23 @@ def plot_param_with_power_fit(
 
     Args:
         df: The dataframe to plot.
-        criterium: The criterium to aggregate the data by. Default is "mean".
+        criterion: The criterion to aggregate the data by. Default is "mean".
         monotonic: Whether to filter the data to grow monotonically.
         group_by: What parameter to group by.
         output_typst: Whether to print the typst array.
-        group_label: How to label the group in the typst output.
     """
     df_stats = (
         df.groupby([group_by, "automaton_size"])["query_count"]
-        .agg(criterium)
+        .agg([criterion])
         .reset_index()
     )
 
     if monotonic:
         df_stats = df_stats.sort_values([group_by, "automaton_size"])
 
-        running_max = df_stats.groupby(group_by)[criterium].cummax()
+        running_max = df_stats.groupby(group_by)[criterion].cummax()
 
-        mask = df_stats[criterium] == running_max
+        mask = df_stats[criterion] == running_max
         df_stats = df_stats[mask]
 
     plt.figure()
@@ -136,12 +137,13 @@ def plot_param_with_power_fit(
         subset = df_stats[df_stats[group_by] == group]
 
         x = subset["automaton_size"].values
-        y = subset[criterium].values
+        y = subset[criterion].values
 
         if len(x) < 2:
             continue
 
-        plt.plot(x, y, "o")
+        label = f"{group_by}={group}"
+        plt.plot(x, y, "o", label=label)
 
         # --- power-law fit ---
         logx = np.log(x)
@@ -158,7 +160,7 @@ def plot_param_with_power_fit(
         ss_tot = np.sum((y - np.mean(y)) ** 2)
         r2 = 1 - ss_res / ss_tot
 
-        label = f"{group_by}={group}: {a_param:.4f}·x^{b:.4f}  R²={r2:.4f}"
+        label = f"{a_param:.4f}·x^{b:.4f}  R²={r2:.4f}"
         plt.plot(x_fit, y_fit, "--", label=label)
 
         # --- Typst export block ---
@@ -168,7 +170,6 @@ def plot_param_with_power_fit(
 
             block = f"""  (
     param_value: {group},
-    param_name: ${group_label}$,
     x: ({x_tuple}),
     y: ({y_tuple}),
     a: {a_param:.4f},
@@ -177,8 +178,8 @@ def plot_param_with_power_fit(
     )"""
             typst_blocks.append(block)
 
-    plt.xlabel(f"{criterium} automaton size")
-    plt.ylabel("query count")
+    plt.xlabel("automaton size")
+    plt.ylabel(f"{criterion} query count")
     plt.legend()
     plt.tight_layout()
     plt.show()
