@@ -75,23 +75,25 @@ def plot_param_with_power_fit(
       all_figures,
       width: 12cm,
       height: 8cm,
-      criterium: "Average",
+      criterion: "Average",
       param_name: none,
+      color_map: lq.color.map.petroff10,
     ) = {
       lq.diagram(
         width: width,
         height: height,
         xlabel: [Automaton size $abs(Q)$],
-        ylabel: [#criterium number of @EQ:pla],
+        ylabel: [#criterion number of @EQ:pla],
         legend: (position: left + top),
         ..(
-          for figure_data in all_figures {
+          for (i, figure_data) in all_figures.enumerate() {
             (
               lq.plot(
                 figure_data.x,
                 figure_data.y,
                 stroke: none,
                 label: $#param_name #figure_data.param_value$,
+                color: color_map.at(i),
               ),
               lq.plot(
                 lq.linspace(calc.min(..figure_data.x), calc.max(..figure_data.x)),
@@ -100,6 +102,7 @@ def plot_param_with_power_fit(
                 mark: none,
                 label: $#figure_data.a dot n^#figure_data.b,
                 R^2 = #{ calc.round(figure_data.r * 100, digits: 2) }%$,
+                color: color_map.at(i),
               ),
             )
           }
@@ -143,7 +146,8 @@ def plot_param_with_power_fit(
             continue
 
         label = f"{group_by}={group}"
-        plt.plot(x, y, "o", label=label)
+        (points,) = plt.plot(x, y, "o", label=label)
+        color = points.get_color()
 
         # --- power-law fit ---
         logx = np.log(x)
@@ -161,7 +165,7 @@ def plot_param_with_power_fit(
         r2 = 1 - ss_res / ss_tot
 
         label = f"{a_param:.4f}·x^{b:.4f}  R²={r2:.4f}"
-        plt.plot(x_fit, y_fit, "--", label=label)
+        plt.plot(x_fit, y_fit, "--", label=label, color=color)
 
         # --- Typst export block ---
         if output_typst:
@@ -186,4 +190,111 @@ def plot_param_with_power_fit(
 
     if output_typst and typst_blocks:
         typst_string = "(\n" + ",\n".join(typst_blocks) + "\n)"
+        print(typst_string)
+
+
+def plot_grouped_counts(
+    df: DataFrame,
+    group_by="alphabet_size",
+    output_typst=False,
+):
+    r"""
+    Plot the number of automata in the sample by parameter group.
+
+    If desired it outputs a typst array that can be used as an input for this function:
+
+    ```typst
+    #let multi_data_bar_plot(
+      x_data,
+      y_sets,
+      width: 12cm,
+      height: 8cm,
+      gap_size: 0.2,
+      xlabel: [Automaton size $abs(Q)$],
+      ylabel: [Number of @wDBA],
+      group_label: $abs(Sigma) =$,
+    ) = {
+      let group_width = 1 - gap_size
+      let bar_width = group_width / y_sets.len()
+      let base_offset = -(group_width - bar_width) / 2
+
+      lq.diagram(
+        width: width,
+        height: height,
+        ..(
+          for (i, y_data) in y_sets.enumerate() {
+            (
+              lq.bar(
+                x_data,
+                y_data.at(1),
+                width: bar_width,
+                offset: base_offset + i * bar_width,
+                label: $#group_label #y_data.at(0)$,
+              ),
+            )
+          }
+        ),
+        grid: none,
+        xaxis: (subticks: none),
+        yaxis: (subticks: none),
+        xlabel: xlabel,
+        ylabel: ylabel,
+      )
+    }
+    ```
+
+    Args:
+        df: The data frame to plot.
+        group_by: What column to group by.
+        output_typst: Whether to output the typst array.
+    """
+    # Count rows per (group, automaton_size)
+    df_counts = (
+        df.groupby([group_by, "automaton_size"]).size().reset_index(name="count")
+    )
+
+    groups = sorted(df_counts[group_by].unique())
+    sizes = sorted(df_counts["automaton_size"].unique())
+
+    x = np.arange(len(sizes))
+    width = 0.8 / len(groups)
+
+    plt.figure()
+
+    all_group_counts = []
+
+    for i, group in enumerate(groups):
+        subset = df_counts[df_counts[group_by] == group]
+
+        counts = [
+            subset[subset["automaton_size"] == size]["count"].values[0]
+            if size in subset["automaton_size"].values
+            else 0
+            for size in sizes
+        ]
+
+        all_group_counts.append(counts)
+
+        offset = (i - (len(groups) - 1) / 2) * width
+        plt.bar(x + offset, counts, width=width, label=f"{group_by}={group}")
+
+    plt.xticks(x, sizes)
+    plt.xlabel("automaton size")
+    plt.ylabel("count")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Typst output
+    if output_typst:
+        x_tuple = ", ".join(map(str, sizes))
+
+        group_blocks = []
+        for group, counts in zip(groups, all_group_counts):
+            group_label = f'"{group}"'  # keep as string
+            counts_tuple = ", ".join(map(str, counts))
+            group_blocks.append(f"    ({group_label}, ({counts_tuple}))")
+
+        typst_string = f"({x_tuple}),\n(\n" + ",\n".join(group_blocks) + ",\n)"
+
         print(typst_string)
