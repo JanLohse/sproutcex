@@ -34,13 +34,13 @@ class Graph(dict[str, Any]):
             return dict(self)
 
     def get_start(self):
-        """Returns the start node $q_0$. Defaults to smallest node label."""
+        """Returns the start node :math:`q_0`. Defaults to smallest node label."""
         if self._start_node is None and self:
             self._start_node = min(self)
         return self._start_node
 
     def get_alphabet(self) -> str:
-        """Returns the input alphabet $\Sigma$ of the graph."""
+        """Returns the input alphabet :math:`\Sigma` of the graph."""
         alphabet = "".join(
             sorted({sym for (_, trans) in self.values() for sym in trans.keys()})
         )
@@ -158,7 +158,7 @@ def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Aut
 
     Args:
         max_states: The maximum number of states allowed.
-        symbols: The input alphabet $\Sigma$.
+        symbols: The input alphabet :math:`\Sigma`.
         prob_acc: Probability for each state to be accepting.
         seed: Seed for randomness.
 

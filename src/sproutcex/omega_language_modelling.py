@@ -1,5 +1,5 @@
 r"""
-Classes modeling ultimately periodic words with a variety of $\omega$-orderings.
+Classes modeling ultimately periodic words with a variety of :math:`\omega`-orderings.
 """
 
 from collections.abc import Iterable
@@ -83,12 +83,13 @@ class llstr(str):
 
 
 class Omegastr:
-    r"""An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |v|, uv_{lex})$."""
+    r"""An ultimately periodic word :math:`u v^\omega` sorted by
+    :math:`(|uv|, |v|, uv_\text{lex})`."""
 
     prefix: llstr
-    r"""The prefix $u$ of $u v^\omega$."""
+    r"""The prefix :math:`u` of :math:`u v^\omega`."""
     loop: llstr
-    r"""The loop $v$ of $u v^\omega$."""
+    r"""The loop :math:`v` of :math:`u v^\omega`."""
 
     def __init__(
         self, prefix: str, loop: str, alphabet: None | Iterable = None, reduce=True
@@ -232,12 +233,12 @@ class Omegastr:
         return item in finite_sample
 
     def is_prefix(self, x):
-        r"""Returns if $u v^\omega$ starts with prefix $x$."""
+        r"""Returns if :math:`u v^\omega` starts with prefix :math:`x`."""
         return self.__class__.check_prefix(self, x)
 
     @staticmethod
     def check_prefix(omegaword, x):
-        r"""Returns if $x$ is prefix of $u v^\omega$."""
+        r"""Returns if :math:`x` is prefix of :math:`u v^\omega`."""
         return omegaword[: len(x)] == x
 
     def subtract_prefix(self, x):
@@ -350,7 +351,10 @@ class OmegastrLoop(Omegastr):
 
 
 class OmegastrPrefix(Omegastr):
-    r"""An ultimately periodic word $u v^\omega$ sorted by $(|uv|, |u|, uv_{lex})$."""
+    r"""
+    An ultimately periodic word :math:`u v^\omega` sorted by
+    :math:`(|uv|, |u|, uv_\text{lex})`.
+    """
 
     def _compare_key(self):
         """
@@ -399,7 +403,8 @@ def omegaiter_prefix(
 
 class OmegastrExpansion(Omegastr):
     r"""
-    An ultimately periodic word $u v^\omega$ sorted by $(|uv|, (uv^\omega)_{lex})$
+    An ultimately periodic word :math:`u v^\omega` sorted by
+    :math:`(|uv|, (uv^\omega)_\text{lex})`.
     """
 
     __slots__ = ("_key",)
@@ -447,7 +452,8 @@ def omegaiter_expansion(
 
 class OmegastrLex(Omegastr):
     r"""
-    An ultimately periodic word $u v^\omega$ sorted by $(|uv|, (uv)_{lex}, |v|)$.
+    An ultimately periodic word :math:`u v^\omega` sorted by
+    :math:`(|uv|, (uv)_\text{lex}, |v|)`.
     """
 
     def _compare_key(self):

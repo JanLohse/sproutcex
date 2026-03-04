@@ -1,7 +1,7 @@
 r"""
 Implements the equivalence check and search for smallest counterexamples for
-$\omega$-automata. Used to simulate the equivalence queries in learning from smallest
-counterexamples.
+:math:`\omega`-automata. Used to simulate the equivalence queries in learning from
+smallest counterexamples.
 """
 
 from collections import defaultdict, deque
@@ -232,12 +232,14 @@ def smallest_diff_loop_product_automaton(
     product automaton.
 
     Args:
-        automaton: The product automaton of automata $A$ and $B$ to search in.
+        automaton: The product automaton of automata :math:`A` and :math:`B` to search
+            in.
 
     Returns:
-        The loop $v$, the states from which the loop can start in automaton $A$, and the
-        state from which the loop can start in automaton $A$, to produce disagreement
-        between $A$ and $B$ on whether $v^\omega$ is accepted.
+        The loop :math:`v`, the states from which the loop can start in automaton
+        :math:`A`, and the state from which the loop can start in automaton :math:`A`,
+        to produce disagreement between :math:`A` and :math:`B` on whether
+        :math:`v^\omega` is accepted.
     """
     alphabet = automaton.get_alphabet()
 

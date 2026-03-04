@@ -28,15 +28,16 @@ def reciprocal_distribution(a: int, b: int) -> int:
     r"""
     Returns a value sampled from a discrete reciprocal distribution. This distribution
     is linear in log space and gives a higher likeliness to lower values. Values are
-    computed as $(a - 0.5)^{1 - x} \cdot (b + 0.5)^x$, where $x$ is uniformly
-    distributed over $[0, 1)$, and the output is rounded.
+    computed as :math:`(a - 0.5)^{1 - x} \cdot (b + 0.5)^x`, where :math:`x` is
+    uniformly distributed over :math:`[0, 1)`, and the output is rounded.
 
     Args:
-        a: The lower bound $a$ of the distribution.
-        b: The upper bound $b$ of the distribution (is included as possible output).
+        a: The lower bound :math:`a` of the distribution.
+        b: The upper bound :math:`b` of the distribution (is included as possible
+            output).
 
     Returns:
-        A discrete value sampled from the reciprocal distribution over $[a, b]$.
+        A discrete value sampled from the reciprocal distribution over :math:`[a, b]`.
     """
     x = random.random()
     y = (a - 0.5) ** (1 - x) * (b + 0.5) ** x
@@ -51,9 +52,10 @@ def sproutcex_silent(
     square_threshold: bool = False,
 ) -> tuple[None | Automaton, int] | tuple[None, None]:
     r"""
-    Attempts to learn an $\omega$-automaton from smallest counterexamples. Implements
-    **SproutCEX** from *Learning $\omega$-Automata from Smallest Counterexamples* by Jan
-    Lohse. This version reduces the output and is made to be used during batch testing.
+    Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
+    Implements **SproutCEX** from *Learning :math:`\omega`-Automata from Smallest
+    Counterexamples* by Jan Lohse. This version reduces the output and is made to be
+    used during batch testing.
 
     Args:
         target: Automaton that is to be learned.

@@ -3,13 +3,13 @@
 ## What is SproutCEX?
 
 This project is an appendix to the Master's thesis *Learning Deterministic*
-$\omega$*-Automata from Smallest Counterexamples* by Jan Lohse.
+:math:`\omega`*-Automata from Smallest Counterexamples* by Jan Lohse.
 
 It provides an exemplary implementation of the **SproutCEX** algorithm for learning
-deterministic $\omega$-automata with *informative right congruence* from smallest
+deterministic :math:`\omega`-automata with *informative right congruence* from smallest
 counterexamples. **SproutCEX** is built upon the passive learner **Sprout** presented by
-Bohn and Löding in *Constructing Deterministic* $\omega$*-Automata from Examples by an
-Extension of the RPNI Algorithm*.
+Bohn and Löding in *Constructing Deterministic* :math:`\omega`*-Automata from Examples
+by an Extension of the RPNI Algorithm*.
 
 This implementation is to been seen as a proof-of-concept and used for visualization and
 testing purposes. It was not written with the intent of being highly performant or being

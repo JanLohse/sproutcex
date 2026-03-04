@@ -21,7 +21,7 @@ class FastRandomBag:
         self.data.append(item)
 
     def pop_random(self):
-        r"""Remove and return a random item in $\mathcal{O}(1)$ time."""
+        r"""Remove and return a random item in :math:`\mathcal{O}(1)` time."""
         if not self.data:
             raise StopIteration("FastRandomBag is empty")
         i = random.randrange(len(self.data))
@@ -62,7 +62,7 @@ def plot_param_with_power_fit(
     output_typst=False,
 ):
     r"""
-    Takes a dataframe and plots the data with a power law fit $a \cdot x^b$.
+    Takes a dataframe and plots the data with a power law fit :math:`a \cdot x^b`.
     Expects a dataframe computed by `sproutcex.random_testing.perform_sample_test`.
 
     Can be configured to print a typst array that can be used as the argument

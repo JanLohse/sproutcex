@@ -1,6 +1,6 @@
 r"""
 Implements the **Sprout** algorithm by Bohn and Löding from
-*Constructing Deterministic $\omega$-Automata from Examples
+*Constructing Deterministic :math:`\omega`-Automata from Examples
 by an Extension of the RPNI Algorithm* for deterministic Büchi automata.
 """
 
@@ -197,7 +197,9 @@ def aut_dba(graph: Graph, minus: set[Omegastr]) -> Automaton:
 
 
 def delta_star(graph: Graph, q: str, w: str) -> str | None:
-    """Computes state that is reached in graph from $q$ after reading $w$."""
+    """
+    Computes state that is reached in graph from :math:`q` after reading :math:`w`.
+    """
     current_state = q
 
     for a in w:

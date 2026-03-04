@@ -1,6 +1,6 @@
 r"""
 Adapts the **Sprout** algorithm by Bohn and Löding from
-*Constructing Deterministic $\omega$-Automata from Examples
+*Constructing Deterministic :math:`\omega`-Automata from Examples
 by an Extension of the RPNI Algorithm* for weak deterministic Büchi automata.
 Speeds up the SCC computation by remembering predecessors and successors of nodes.
 """
@@ -100,7 +100,7 @@ def sprout_wdba_optim(plus, minus, square_threshold=False):
     r"""
     Computes a weak deterministic Büchi automaton consistent with the sample, if
     possible. Based on **Sprout** algorithm by Bohn and Löding from *Constructing
-    Deterministic $\omega$-Automata from Examples by an Extension of the RPNI
+    Deterministic :math:`\omega`-Automata from Examples by an Extension of the RPNI
     Algorithm*. Employs a cache to compute runs faster and stores predecessors and
     successors to check for weakness faster.
 
