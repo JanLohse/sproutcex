@@ -19,7 +19,7 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .graph_functions import Automaton, generate_wdba
-from .sproutcex import CONS_METHODS, ORDERINGS, ConsMethod, Ordering
+from .sproutcex_core import CONS_METHODS, ORDERINGS, ConsMethod, Ordering
 
 FULL_ALPHABET = string.ascii_lowercase
 
