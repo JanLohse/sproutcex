@@ -227,7 +227,7 @@ def smallest_cex_expansion(
 def smallest_diff_loop_product_automaton(
     automaton: Automaton,
 ) -> tuple[None | str, None | set[str], None | set[str]]:
-    """
+    r"""
     Compute the smallest loop rejected by one and accepted by the other automaton of a
     product automaton.
 

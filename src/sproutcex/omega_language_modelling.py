@@ -308,6 +308,17 @@ class Omegastr:
         """Get the alphabet of the UP word."""
         return set(self.prefix) | set(self.loop)
 
+    def to_typst(self):
+        """Get a string in typst format."""
+
+        def add_spaces(a):
+            return " ".join(list(a.strip()))
+
+        if len(self.loop) > 1:
+            return f"${add_spaces(self.prefix)} ({add_spaces(self.loop)})^omega$"
+        else:
+            return f"${add_spaces(self.prefix)} {add_spaces(self.loop)}^omega$"
+
 
 @cache
 def _omegaiter_length(alphabet: str, length: int) -> list[Omegastr]:

@@ -51,6 +51,7 @@ def sproutcex(
     verbose: bool = False,
     max_steps: None | int = None,
     square_threshold: bool = False,
+    typst_output: bool = False,
 ) -> None | Automaton:
     r"""
     Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
@@ -64,6 +65,7 @@ def sproutcex(
         verbose: Whether to display every the automaton in every step.
         max_steps: How many steps before aborting.
         square_threshold: Whether to use the original square threshold for Sprout.
+        typst_output: Print for use with diagraph typst package instead of displaying.
 
     Returns:
         An automaton equivalent to the target, if one is found.
@@ -127,13 +129,19 @@ def sproutcex(
             minus.add(cex)
 
         if verbose and not found and cex is not None:
-            display(automaton)
+            if typst_output:
+                print(automaton.to_diagraph())
+            else:
+                display(automaton)
             print(
                 f"Received the {'positive' if cex_result else 'negative'} "
-                f"counterexample {cex}."
+                f"counterexample {cex.to_typst() if typst_output else cex}."
             )
 
-    display(automaton)
+    if typst_output:
+        print(automaton.to_diagraph())
+    else:
+        display(automaton)
     print(
         f"Found after {query_count} quer{'y' if query_count == 1 else 'ies'}! "
         f"The proportional reference is {len(automaton) ** 2 * len(alphabet)} queries. "

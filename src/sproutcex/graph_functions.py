@@ -6,6 +6,7 @@ import random
 from collections import defaultdict
 from typing import Any
 
+import graphviz
 from graphviz import Digraph
 
 from .omega_language_modelling import llstr
@@ -34,22 +35,34 @@ class Graph(dict[str, Any]):
             return dict(self)
 
     def get_start(self):
-        """Returns the start node :math:`q_0`. Defaults to smallest node label."""
+        r"""Returns the start node :math:`q_0`. Defaults to smallest node label."""
         if self._start_node is None and self:
             self._start_node = min(self)
         return self._start_node
 
     def get_alphabet(self) -> str:
-        """Returns the input alphabet :math:`\Sigma` of the graph."""
+        r"""Returns the input alphabet :math:`\Sigma` of the graph."""
         alphabet = "".join(
             sorted({sym for (_, trans) in self.values() for sym in trans.keys()})
         )
         return alphabet
 
+    def to_diagraph(self):
+        """
+        Convert graph to a string that can be pasted into the diagraph typst
+        package.
+        """
+        return graph_to_diagraph(self)
 
-def draw_graph(graph: Graph) -> Digraph:
+
+def draw_graph(graph: Graph, for_typst=False) -> Digraph:
     """Converts a graph to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
+    if for_typst:
+        epsilon = "epsilon"
+    else:
+        epsilon = "ε"
+        dot.attr(size="11,11")
     dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
     dot.attr(
         "node",
@@ -62,26 +75,39 @@ def draw_graph(graph: Graph) -> Digraph:
 
     # Draw states.
     for state in graph:
-        sid = state if state else "ε"
+        sid = state if state else epsilon
         dot.node(sid)
 
     # Start arrow.
     start = graph.get_start()
     dot.node("", shape="none", height="0", width="0")
-    dot.edge("", "ε" if start == "" else start)
+    dot.edge("", epsilon if start == "" else start)
 
     # Merge edges.
     merged = defaultdict(list)
     for state, transitions in graph.items():
         for symbol, target in transitions.items():
-            src = state if state else "ε"
-            dst = target if target else "ε"
+            src = state if state else epsilon
+            dst = target if target else epsilon
             merged[(src, dst)].append(symbol)
 
     for (src, dst), symbols in merged.items():
         dot.edge(src, dst, label=", ".join(sorted(symbols)))
 
     return dot
+
+
+def graph_to_diagraph(graph: Graph) -> str:
+    """
+    Convert graph to a string that can be pasted into the diagraph typst package.
+    """
+    dot = draw_graph(graph, True)
+    dot_str = str(dot)
+    dot_str = f"""#raw-render(```
+{dot_str.strip()}
+```)
+"""
+    return dot_str
 
 
 class Automaton(Graph):
@@ -102,31 +128,41 @@ class Automaton(Graph):
         else:
             return dict(self)
 
+    def to_diagraph(self):
+        """
+        Convert automaton to a string that can be pasted into the diagraph typst
+        package.
+        """
+        return automaton_to_diagraph(self)
 
-def draw_automaton(automaton: Automaton):
+
+def draw_automaton(automaton: Automaton, for_typst=False) -> graphviz.Digraph:
     """Converts an automaton to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
-    dot.attr(size="11,11")
+    if for_typst:
+        epsilon = "epsilon"
+    else:
+        epsilon = "ε"
+        dot.attr(size="11,11")
     if max([len(x) for x in automaton]) > 4:
         default_shape = "box"
         small_shape = "box"
     else:
         default_shape = "ellipse"
         small_shape = "circle"
-    dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
+    dot.attr(rankdir="LR")
     dot.attr(
         "node",
-        fontsize="14",
         shape=default_shape,
         height="0.35",
         width="0.35",
         style="rounded",
     )
-    dot.attr("edge", fontsize="14", arrowhead="vee", arrowsize="0.66")
+    dot.attr("edge", arrowhead="vee", arrowsize="0.66")
 
     # Draw states.
     for state, (is_final, transitions) in automaton.items():
-        sid = state if state else "ε"
+        sid = state if state else epsilon
         dot.node(
             sid,
             peripheries="2" if is_final else "1",
@@ -136,14 +172,14 @@ def draw_automaton(automaton: Automaton):
     # Start arrow.
     start = automaton.get_start()
     dot.node("", shape="none", height="0", width="0")
-    dot.edge("", "ε" if start == "" else start)
+    dot.edge("", epsilon if start == "" else start)
 
     # Merge edges.
     merged = defaultdict(list)
     for state, (_, transitions) in automaton.items():
         for symbol, target in transitions.items():
-            src = state if state else "ε"
-            dst = target if target else "ε"
+            src = state if state else epsilon
+            dst = target if target else epsilon
             merged[(src, dst)].append(symbol)
 
     for (src, dst), symbols in merged.items():
@@ -152,8 +188,21 @@ def draw_automaton(automaton: Automaton):
     return dot
 
 
-def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Automaton:
+def automaton_to_diagraph(automaton: Automaton) -> str:
     """
+    Convert automaton to a string that can be pasted into the diagraph typst package.
+    """
+    dot = draw_automaton(automaton, True)
+    dot_str = str(dot)
+    dot_str = f"""#raw-render(```
+{dot_str.strip()}
+```)
+"""
+    return dot_str
+
+
+def generate_wdba(max_states: int, symbols="ab", prob_acc=0.5, seed=None) -> Automaton:
+    r"""
     Generates a random complete weak deterministic Büchi automaton.
 
     Args:
