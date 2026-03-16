@@ -18,6 +18,8 @@ pythonic code and keeping the dependencies minimal.
 
 ## Usage
 
+An installation of [Python](https://www.python.org/) and a package manager like [pip](https://pip.pypa.io/en/stable/installation/) are required to run the code. To visualize the graphs installing [graphviz](https://graphviz.org/download/) is also recommended.
+
 As supplementary material for the thesis we provide the jupyter notebook
 `thesis_examples.ipynb`. Simply clone the repository:
 ```shell
