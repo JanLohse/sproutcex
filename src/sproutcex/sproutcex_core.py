@@ -4,11 +4,13 @@ The core implementation of **SproutCEX** from *Learning Deterministic
 """
 
 import time
-from typing import Literal
+from dataclasses import dataclass
+from typing import Iterator, Literal
 
 from IPython.core.display_functions import display
 
 from .graph_functions import Automaton
+from .omega_language_modelling import Omegastr
 from .smallest_cex import (
     smallest_cex,
     smallest_cex_expansion,
@@ -44,6 +46,101 @@ ConsMethod = Literal[
 Ordering = Literal["default", "loop", "prefix", "lex", "expansion"]
 
 
+EventType = Literal["iteration", "failed", "aborted", "finished"]
+
+
+@dataclass
+class SproutcexEvent:
+    event_type: EventType
+    query_count: int
+    search_time: float
+    build_time: float
+    automaton: Automaton | None = None
+    cex: Omegastr | None = None
+    cex_result: bool | None = False
+
+
+def sproutcex_iterator(
+    target: Automaton,
+    cons_method: ConsMethod = "dba",
+    ordering: Ordering = "default",
+    max_steps: None | int = None,
+    square_threshold: bool = False,
+) -> Iterator[SproutcexEvent]:
+    r"""
+    Should not be used directly. Use `sproutcex` under regular circumstances. This
+    implements the algorithm and yields the automaton in every step. A wrapper is needed
+    for a usable output.
+
+    Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
+    Implements **SproutCEX** from *Learning :math:`\omega`-Automata from Smallest
+    Counterexamples* by Jan Lohse.
+
+    Args:
+        target: Automaton that is to be learned.
+        cons_method: The passive learner to use for constructing automata.
+        ordering: How to order the automaton.
+        max_steps: How many steps before aborting.
+        square_threshold: Whether to use the original square threshold for Sprout.
+
+    Returns:
+        Yields automata as they are computed.
+    """
+
+    sprout_method = CONS_METHODS[cons_method]
+    cex_method = ORDERINGS[ordering]
+
+    plus = set()
+    minus = set()
+    found = False
+    query_count = 0
+    build_time = 0.0
+    search_time = 0.0
+
+    while not found:
+        if max_steps is not None:
+            if not max_steps:
+                yield SproutcexEvent("aborted", query_count, search_time, build_time)
+                return None
+            max_steps -= 1
+        start = time.time()
+        automaton = sprout_method(plus, minus, square_threshold=square_threshold)
+        build_time += time.time() - start
+        start = time.time()
+        found, cex, cex_result = cex_method(automaton, target)
+        search_time += time.time() - start
+        query_count += 1
+
+        if found:
+            continue
+
+        cex.reduce()
+
+        if cex_result:
+            if cex in plus:
+                yield SproutcexEvent("failed", query_count, search_time, build_time)
+                return None
+            plus.add(cex)
+        else:
+            if cex in minus:
+                yield SproutcexEvent("failed", query_count, search_time, build_time)
+                return None
+            minus.add(cex)
+
+        if not found and cex is not None:
+            yield SproutcexEvent(
+                "iteration",
+                query_count,
+                search_time,
+                build_time,
+                automaton,
+                cex,
+                cex_result,
+            )
+
+    yield SproutcexEvent("finished", query_count, search_time, build_time, automaton)
+
+
 def sproutcex(
     target: Automaton,
     cons_method: ConsMethod = "dba",
@@ -56,7 +153,7 @@ def sproutcex(
     r"""
     Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
     Implements **SproutCEX** from *Learning :math:`\omega`-Automata from Smallest
-    Counterexamples* by Jan Lohse.
+    Counterexamples* by Jan Lohse. Actual algorithm is found in `sproutcex_iterator`.
 
     Args:
         target: Automaton that is to be learned.
@@ -75,77 +172,47 @@ def sproutcex(
         computed as :math:`|\Sigma| \cdot |Q|^2`, which is the maximum number of
         examples sufficient for identifying all edges of an automaton.
     """
-    sprout_method = CONS_METHODS[cons_method]
-    cex_method = ORDERINGS[ordering]
-
-    alphabet = target.get_alphabet()
-    plus = set()
-    minus = set()
-    found = False
-    query_count = 0
-    build_time = 0.0
-    search_time = 0.0
-
-    while not found:
-        if max_steps is not None:
-            if not max_steps:
-                print(
-                    f"Aborted after {query_count} "
-                    f"quer{'y' if query_count == 1 else 'ies'}. "
-                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
-                )
-                return None
-            max_steps -= 1
-        start = time.time()
-        automaton = sprout_method(plus, minus, square_threshold=square_threshold)
-        build_time += time.time() - start
-        start = time.time()
-        found, cex, cex_result = cex_method(automaton, target)
-        search_time += time.time() - start
-        query_count += 1
-
-        if found:
-            continue
-
-        cex.reduce()
-
-        if cex_result:
-            if cex in plus:
-                print(
-                    f"Failed after {query_count} "
-                    f"quer{'y' if query_count == 1 else 'ies'}. "
-                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
-                )
-                return None
-            plus.add(cex)
-        else:
-            if cex in minus:
-                print(
-                    f"Failed after {query_count} "
-                    f"quer{'y' if query_count == 1 else 'ies'}. "
-                    f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
-                )
-                return None
-            minus.add(cex)
-
-        if verbose and not found and cex is not None:
-            if typst_output:
-                print(automaton.to_diagraph())
-            else:
-                display(automaton)
-            print(
-                f"Received the {'positive' if cex_result else 'negative'} "
-                f"counterexample {cex.to_typst() if typst_output else cex}."
-            )
-
-    if typst_output:
-        print(automaton.to_diagraph())
-    else:
-        display(automaton)
-    print(
-        f"Found after {query_count} quer{'y' if query_count == 1 else 'ies'}! "
-        f"The proportional reference is {len(automaton) ** 2 * len(alphabet)} queries. "
-        f"sprout_time={build_time:.2f}s cex_{search_time=:.2f}s"
+    sproutcex_iter = sproutcex_iterator(
+        target, cons_method, ordering, max_steps, square_threshold
     )
 
-    return automaton
+    for event in sproutcex_iter:
+        match event.event_type:
+            case "iteration":
+                if verbose:
+                    if typst_output:
+                        print(event.automaton.to_diagraph())
+                    else:
+                        display(event.automaton)
+                    print(
+                        f"Received the "
+                        f"{'positive' if event.cex_result else 'negative'} "
+                        f"counterexample "
+                        f"{event.cex.to_typst() if typst_output else event.cex}."
+                    )
+            case "aborted":
+                print(
+                    f"Aborted after {event.query_count} "
+                    f"quer{'y' if event.query_count == 1 else 'ies'}. "
+                    f"sprout_time={event.build_time:.2f}s cex_{event.search_time=:.2f}s"
+                )
+            case "failed":
+                print(
+                    f"Failed after {event.query_count} "
+                    f"quer{'y' if event.query_count == 1 else 'ies'}. "
+                    f"sprout_time={event.build_time:.2f}s cex_{event.search_time=:.2f}s"
+                )
+            case "finished":
+                if typst_output:
+                    print(event.automaton.to_diagraph())
+                else:
+                    display(event.automaton)
+                print(
+                    f"Found after {event.query_count} "
+                    f"quer{'y' if event.query_count == 1 else 'ies'}! "
+                    f"The proportional reference is "
+                    f"{len(event.automaton) ** 2 * len(target.get_alphabet())} "
+                    f"queries. sprout_time={event.build_time:.2f}s "
+                    f"cex_{event.search_time=:.2f}s"
+                )
+                return event.automaton
