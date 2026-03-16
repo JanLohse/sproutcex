@@ -8,7 +8,7 @@ from .graph_functions import Automaton, Graph
 from .omega_language_modelling import Omegastr, llstr
 
 
-def extend_state(loops: set[Omegastr], state="", graph: None | Graph = None) -> Graph:
+def extend_state(loops: set[str], state="", graph: None | Graph = None) -> Graph:
     """
     Extend graph by adding disjunct loops to a specific state.
 
@@ -22,7 +22,7 @@ def extend_state(loops: set[Omegastr], state="", graph: None | Graph = None) -> 
     """
     words_left = set(loops)
     if graph is None:
-        graph = {state: {}}
+        graph = Graph({state: {}})
     index = 0
     state_to_word = {}
     words_to_prefix = {word: state for word in loops}
@@ -156,6 +156,7 @@ def extend(graph: Graph, plus: set[Omegastr]) -> Graph:
             )
 
     for q0, loops in escape_strings.items():
+        print(q0, loops)
         extend_state(loops, q0, graph)
 
     return graph

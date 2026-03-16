@@ -51,8 +51,8 @@ before:
 jupyter lab thesis_examples.ipynb
 ```
 
-### Just the package
-Alternatively one can also just install the package directly using
-```sh
+### Just the Package
+Alternatively one can also just install the package directly using:
+```shell
 pip install git+https://github.com/JanLohse/sproutcex
 ```

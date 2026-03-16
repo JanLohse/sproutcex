@@ -59,36 +59,41 @@ def draw_graph(graph: Graph, for_typst=False) -> Digraph:
     """Converts a graph to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
     if for_typst:
-        epsilon = "epsilon"
+
+        def format_state(state_name):
+            if state_name:
+                return " ".join(state_name)
+            else:
+                return "epsilon"
     else:
-        epsilon = "ε"
         dot.attr(size="11,11")
-    dot.attr(rankdir="LR", fontname="Helvetica", fontsize="14")
-    dot.attr(
-        "node",
-        fontsize="14",
-        height="0.25",
-        width="0.25",
-        shape="plaintext",
-    )
-    dot.attr("edge", fontsize="14", arrowhead="vee", arrowsize="0.66")
+
+        def format_state(state_name):
+            if state_name:
+                return state_name
+            else:
+                return "ε"
+
+    dot.attr(rankdir="LR", fontname="Helvetica")
+    dot.attr("node", height="0.25", width="0.25", shape="plaintext", fontsize="11")
+    dot.attr("edge", arrowhead="vee", arrowsize="0.66", fontsize="11")
 
     # Draw states.
     for state in graph:
-        sid = state if state else epsilon
+        sid = format_state(state)
         dot.node(sid)
 
     # Start arrow.
     start = graph.get_start()
     dot.node("", shape="none", height="0", width="0")
-    dot.edge("", epsilon if start == "" else start)
+    dot.edge("", format_state(start))
 
     # Merge edges.
     merged = defaultdict(list)
     for state, transitions in graph.items():
         for symbol, target in transitions.items():
-            src = state if state else epsilon
-            dst = target if target else epsilon
+            src = format_state(state)
+            dst = format_state(target)
             merged[(src, dst)].append(symbol)
 
     for (src, dst), symbols in merged.items():
@@ -140,46 +145,55 @@ def draw_automaton(automaton: Automaton, for_typst=False) -> graphviz.Digraph:
     """Converts an automaton to a `graphviz.Digraph` for rich display."""
     dot = Digraph()
     if for_typst:
-        epsilon = "epsilon"
+
+        def format_state(state_name):
+            if state_name:
+                return " ".join(state_name)
+            else:
+                return "epsilon"
     else:
-        epsilon = "ε"
         dot.attr(size="11,11")
+
+        def format_state(state_name):
+            if state_name:
+                return state_name
+            else:
+                return "ε"
+
     if max([len(x) for x in automaton]) > 4:
-        default_shape = "box"
-        small_shape = "box"
+        shape = "box"
+        fixedsize = "false"
     else:
-        default_shape = "ellipse"
-        small_shape = "circle"
+        shape = "circle"
+        fixedsize = "true"
     dot.attr(rankdir="LR")
     dot.attr(
         "node",
-        shape=default_shape,
+        shape=shape,
         height="0.35",
         width="0.35",
         style="rounded",
+        fixedsize=fixedsize,
+        fontsize="11",
     )
-    dot.attr("edge", arrowhead="vee", arrowsize="0.66")
+    dot.attr("edge", arrowhead="vee", arrowsize="0.66", fontsize="11")
 
     # Draw states.
     for state, (is_final, transitions) in automaton.items():
-        sid = state if state else epsilon
-        dot.node(
-            sid,
-            peripheries="2" if is_final else "1",
-            shape=small_shape if len(state) <= 1 else default_shape,
-        )
+        sid = format_state(state)
+        dot.node(sid, peripheries="2" if is_final else "1")
 
     # Start arrow.
     start = automaton.get_start()
     dot.node("", shape="none", height="0", width="0")
-    dot.edge("", epsilon if start == "" else start)
+    dot.edge("", format_state(start))
 
     # Merge edges.
     merged = defaultdict(list)
     for state, (_, transitions) in automaton.items():
         for symbol, target in transitions.items():
-            src = state if state else epsilon
-            dst = target if target else epsilon
+            src = format_state(state)
+            dst = format_state(target)
             merged[(src, dst)].append(symbol)
 
     for (src, dst), symbols in merged.items():
