@@ -47,12 +47,12 @@ class Graph(dict[str, Any]):
         )
         return alphabet
 
-    def to_diagraph(self):
+    def to_typst(self):
         """
         Convert graph to a string that can be pasted into the diagraph typst
         package.
         """
-        return graph_to_diagraph(self)
+        return graph_to_typst(self)
 
 
 def draw_graph(graph: Graph, for_typst=False) -> Digraph:
@@ -102,7 +102,7 @@ def draw_graph(graph: Graph, for_typst=False) -> Digraph:
     return dot
 
 
-def graph_to_diagraph(graph: Graph) -> str:
+def graph_to_typst(graph: Graph) -> str:
     """
     Convert graph to a string that can be pasted into the diagraph typst package.
     """
@@ -133,12 +133,12 @@ class Automaton(Graph):
         else:
             return dict(self)
 
-    def to_diagraph(self):
+    def to_typst(self):
         """
         Convert automaton to a string that can be pasted into the diagraph typst
         package.
         """
-        return automaton_to_diagraph(self)
+        return automaton_to_typst(self)
 
 
 def draw_automaton(automaton: Automaton, for_typst=False) -> graphviz.Digraph:
@@ -202,7 +202,7 @@ def draw_automaton(automaton: Automaton, for_typst=False) -> graphviz.Digraph:
     return dot
 
 
-def automaton_to_diagraph(automaton: Automaton) -> str:
+def automaton_to_typst(automaton: Automaton) -> str:
     """
     Convert automaton to a string that can be pasted into the diagraph typst package.
     """

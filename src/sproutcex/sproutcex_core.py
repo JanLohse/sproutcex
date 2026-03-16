@@ -7,9 +7,10 @@ import time
 from dataclasses import dataclass
 from typing import Iterator, Literal
 
-from IPython.core.display_functions import display
+import ipywidgets as widgets
+from IPython.display import SVG, clear_output, display
 
-from .graph_functions import Automaton
+from .graph_functions import Automaton, draw_automaton
 from .omega_language_modelling import Omegastr
 from .smallest_cex import (
     smallest_cex,
@@ -22,6 +23,7 @@ from .sprout_dba import sprout_dba
 from .sprout_dba_optimized import sprout_dba_optim
 from .sprout_wdba import sprout_wdba
 from .sprout_wdba_optimized import sprout_wdba_optim
+from .utils import is_ipython
 
 CONS_METHODS = {
     "dba": sprout_dba_optim,
@@ -58,6 +60,33 @@ class SproutcexEvent:
     automaton: Automaton | None = None
     cex: Omegastr | None = None
     cex_result: bool | None = False
+
+    def to_string(self, typst_output=False):
+        match self.event_type:
+            case "iteration":
+                return (
+                    f"Received the {'positive' if self.cex_result else 'negative'} "
+                    f"counterexample "
+                    f"{self.cex.to_typst() if typst_output else self.cex}."
+                )
+            case "aborted":
+                return (
+                    f"Aborted after {self.query_count} quer"
+                    f"{'y' if self.query_count == 1 else 'ies'}. sprout_time="
+                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                )
+            case "failed":
+                return (
+                    f"Failed after {self.query_count} quer"
+                    f"{'y' if self.query_count == 1 else 'ies'}. sprout_time="
+                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                )
+            case "finished":
+                return (
+                    f"Found after {self.query_count} quer"
+                    f"{'y' if self.query_count == 1 else 'ies'}! sprout_time="
+                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                )
 
 
 def sproutcex_iterator(
@@ -149,6 +178,8 @@ def sproutcex(
     max_steps: None | int = None,
     square_threshold: bool = False,
     typst_output: bool = False,
+    animated: bool | None = None,
+    interval=250,
 ) -> None | Automaton:
     r"""
     Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
@@ -163,15 +194,21 @@ def sproutcex(
         max_steps: How many steps before aborting.
         square_threshold: Whether to use the original square threshold for Sprout.
         typst_output: Print for use with diagraph typst package instead of displaying.
+        animated: Output an interactive animation for use in a Jupyter notebook.
+            If left to None it automatically detects if we are in interactive mode.
+        interval: When pressing Play, how long to display each frame in ms.
+            Only applicable if animated=True.
 
     Returns:
         An automaton equivalent to the target, if one is found.
         It will also display the automaton and print the number of equivalence queries
-        performed, including the final one with a positive result. As a guide for the
-        efficiency of **SproutCEX** a proportional reference is printed. This is
-        computed as :math:`|\Sigma| \cdot |Q|^2`, which is the maximum number of
-        examples sufficient for identifying all edges of an automaton.
+        performed, including the final one with a positive result.
     """
+    if animated or (animated is None and is_ipython()):
+        return sproutcex_animated(
+            target, cons_method, ordering, max_steps, square_threshold, interval
+        )
+
     sproutcex_iter = sproutcex_iterator(
         target, cons_method, ordering, max_steps, square_threshold
     )
@@ -181,38 +218,88 @@ def sproutcex(
             case "iteration":
                 if verbose:
                     if typst_output:
-                        print(event.automaton.to_diagraph())
+                        print(event.automaton.to_typst())
                     else:
                         display(event.automaton)
-                    print(
-                        f"Received the "
-                        f"{'positive' if event.cex_result else 'negative'} "
-                        f"counterexample "
-                        f"{event.cex.to_typst() if typst_output else event.cex}."
-                    )
+                    print(event.to_string(typst_output))
             case "aborted":
-                print(
-                    f"Aborted after {event.query_count} "
-                    f"quer{'y' if event.query_count == 1 else 'ies'}. "
-                    f"sprout_time={event.build_time:.2f}s cex_{event.search_time=:.2f}s"
-                )
+                print(event.to_string(typst_output))
             case "failed":
-                print(
-                    f"Failed after {event.query_count} "
-                    f"quer{'y' if event.query_count == 1 else 'ies'}. "
-                    f"sprout_time={event.build_time:.2f}s cex_{event.search_time=:.2f}s"
-                )
+                print(event.to_string(typst_output))
             case "finished":
                 if typst_output:
-                    print(event.automaton.to_diagraph())
+                    print(event.automaton.to_typst())
                 else:
                     display(event.automaton)
-                print(
-                    f"Found after {event.query_count} "
-                    f"quer{'y' if event.query_count == 1 else 'ies'}! "
-                    f"The proportional reference is "
-                    f"{len(event.automaton) ** 2 * len(target.get_alphabet())} "
-                    f"queries. sprout_time={event.build_time:.2f}s "
-                    f"cex_{event.search_time=:.2f}s"
-                )
+                print(event.to_string(typst_output))
                 return event.automaton
+
+
+def sproutcex_animated(
+    target: Automaton,
+    cons_method: ConsMethod = "dba",
+    ordering: Ordering = "default",
+    max_steps: None | int = None,
+    square_threshold: bool = False,
+    interval=250,
+) -> None | Automaton:
+    r"""
+    Visualizes output as an animation for use in a Jupyter notebook.
+
+    Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
+    Implements **SproutCEX** from *Learning :math:`\omega`-Automata from Smallest
+    Counterexamples* by Jan Lohse. Actual algorithm is found in `sproutcex_iterator`.
+
+    Args:
+        target: Automaton that is to be learned.
+        cons_method: The passive learner to use for constructing automata.
+        ordering: How to order the automaton.
+        max_steps: How many steps before aborting.
+        square_threshold: Whether to use the original square threshold for Sprout.
+        interval: When pressing Play, how long to display each frame in ms.
+
+    Returns:
+        An automaton equivalent to the target, if one is found.
+        It will also display the automaton and print the number of equivalence queries
+        performed, including the final one with a positive result. As a guide for the
+        efficiency of **SproutCEX** a proportional reference is printed. This is
+        computed as :math:`|\Sigma| \cdot |Q|^2`, which is the maximum number of
+        examples sufficient for identifying all edges of an automaton.
+    """
+    frames = []
+
+    slider = widgets.IntSlider(min=0, max=0, step=1, value=0)
+    play = widgets.Play(interval=interval, value=0, min=0, max=0)
+    widgets.jslink((play, "value"), (slider, "value"))
+
+    output = widgets.Output()
+
+    def render(change=None):
+        with output:
+            clear_output(wait=True)
+            if slider.value < len(frames):
+                display(frames[slider.value][0])
+                display(frames[slider.value][1])
+
+    slider.observe(render, names="value")
+
+    display(widgets.VBox([widgets.HBox([play, slider]), output]))
+
+    sproutcex_iter = sproutcex_iterator(
+        target, cons_method, ordering, max_steps, square_threshold
+    )
+    for event in sproutcex_iter:
+        if event.automaton is not None:
+            frames.append(
+                (
+                    SVG(draw_automaton(event.automaton).pipe(format="svg")),
+                    event.to_string(),
+                )
+            )
+            slider.max = len(frames) - 1
+            play.max = len(frames) - 1
+            slider.value = len(frames) - 1  # always show latest
+            render()  # render explicitly
+
+    if event.event_type == "finished":
+        return event.automaton

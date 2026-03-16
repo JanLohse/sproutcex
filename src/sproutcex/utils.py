@@ -298,3 +298,16 @@ def plot_grouped_counts(
         typst_string = f"({x_tuple}),\n(\n" + ",\n".join(group_blocks) + ",\n)"
 
         print(typst_string)
+
+
+def is_ipython():
+    """Is code executed in iPython environment?"""
+    try:
+        from IPython import get_ipython
+
+        ip = get_ipython()
+        if ip is None:
+            return False
+        return True
+    except ImportError:
+        return False

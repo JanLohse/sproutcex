@@ -19,7 +19,11 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .graph_functions import Automaton, generate_wdba
-from .sproutcex_core import CONS_METHODS, ORDERINGS, ConsMethod, Ordering
+from .sproutcex_core import (
+    ConsMethod,
+    Ordering,
+    sproutcex_iterator,
+)
 
 FULL_ALPHABET = string.ascii_lowercase
 
@@ -52,10 +56,8 @@ def sproutcex_silent(
     square_threshold: bool = False,
 ) -> tuple[None | Automaton, int] | tuple[None, None]:
     r"""
-    Attempts to learn an :math:`\omega`-automaton from smallest counterexamples.
-    Implements **SproutCEX** from *Learning :math:`\omega`-Automata from Smallest
-    Counterexamples* by Jan Lohse. This version reduces the output and is made to be
-    used during batch testing.
+    Wraps `sproutcex.sproutcex_iterator` to only get the final automaton and the number
+    of equivalence queries performed.
 
     Args:
         target: Automaton that is to be learned.
@@ -68,38 +70,14 @@ def sproutcex_silent(
         An automaton equivalent to the target, if one is found, and the number of
         queries needed to find it.
     """
-    sprout_method = CONS_METHODS[cons_method]
-    cex_method = ORDERINGS[ordering]
+    sprout_event = None
 
-    plus = set()
-    minus = set()
-    found = False
-    query_count = 0
+    for sprout_event in sproutcex_iterator(
+        target, cons_method, ordering, max_steps, square_threshold
+    ):
+        pass
 
-    while not found:
-        if max_steps is not None:
-            if not max_steps:
-                return None, None
-            max_steps -= 1
-        automaton = sprout_method(plus, minus, square_threshold=square_threshold)
-        found, cex, cex_result = cex_method(automaton, target)
-        query_count += 1
-
-        if found:
-            continue
-
-        cex.reduce()
-
-        if cex_result:
-            if cex in plus:
-                return None, None
-            plus.add(cex)
-        else:
-            if cex in minus:
-                return None, None
-            minus.add(cex)
-
-    return automaton, query_count
+    return sprout_event.automaton, sprout_event.query_count
 
 
 def generate_automaton(
