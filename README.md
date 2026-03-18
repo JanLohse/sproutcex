@@ -1,5 +1,10 @@
 # SproutCEX
 
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://janlohse.github.io/sproutcex/)
+[![CI](https://github.com/JanLohse/sproutcex/actions/workflows/main.yml/badge.svg)](https://github.com/JanLohse/sproutcex/actions/workflows/main.yml)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/JanLohse/sproutcex?tab=MIT-1-ov-file#readme)
+[![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13%20|%203.14-blue)](https://www.python.org/)
+
 ## What is SproutCEX?
 
 This project is an appendix to the Master's thesis *Learning Deterministic*
