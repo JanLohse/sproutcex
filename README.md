@@ -4,7 +4,7 @@
 [![CI](https://github.com/JanLohse/sproutcex/actions/workflows/main.yml/badge.svg)](https://github.com/JanLohse/sproutcex/actions/workflows/main.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/JanLohse/sproutcex?tab=MIT-1-ov-file#readme)
 [![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13%20|%203.14-blue)](https://www.python.org/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19101725.svg)](https://doi.org/10.5281/zenodo.19101725)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19101724.svg)](https://doi.org/10.5281/zenodo.19101724)
 
 ## What is SproutCEX?
 
