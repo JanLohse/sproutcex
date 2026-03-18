@@ -73,19 +73,19 @@ class SproutcexEvent:
                 return (
                     f"Aborted after {self.query_count} quer"
                     f"{'y' if self.query_count == 1 else 'ies'}. sprout_time="
-                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                    f"{self.build_time:.2f}s cex_search_time={self.search_time:.2f}s"
                 )
             case "failed":
                 return (
                     f"Failed after {self.query_count} quer"
                     f"{'y' if self.query_count == 1 else 'ies'}. sprout_time="
-                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                    f"{self.build_time:.2f}s cex_search_time={self.search_time:.2f}s"
                 )
             case "finished":
                 return (
                     f"Found after {self.query_count} quer"
                     f"{'y' if self.query_count == 1 else 'ies'}! sprout_time="
-                    f"{self.build_time:.2f}s cex_{self.search_time=:.2f}s"
+                    f"{self.build_time:.2f}s cex_search_time={self.search_time:.2f}s"
                 )
 
 
@@ -204,7 +204,9 @@ def sproutcex(
         It will also display the automaton and print the number of equivalence queries
         performed, including the final one with a positive result.
     """
-    if animated or (animated is None and is_ipython()):
+    if typst_output:
+        verbose = True
+    if not verbose and (animated or (animated is None and is_ipython())):
         return sproutcex_animated(
             target, cons_method, ordering, max_steps, square_threshold, interval
         )

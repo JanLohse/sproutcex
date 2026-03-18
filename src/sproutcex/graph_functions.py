@@ -74,7 +74,7 @@ def draw_graph(graph: Graph, for_typst=False) -> Digraph:
             else:
                 return "ε"
 
-    dot.attr(rankdir="LR", fontname="Helvetica")
+    dot.attr(rankdir="LR")
     dot.attr("node", height="0.25", width="0.25", shape="plaintext", fontsize="11")
     dot.attr("edge", arrowhead="vee", arrowsize="0.66", fontsize="11")
 
@@ -208,10 +208,9 @@ def automaton_to_typst(automaton: Automaton) -> str:
     """
     dot = draw_automaton(automaton, True)
     dot_str = str(dot)
-    dot_str = f"""#raw-render(```
+    dot_str = f"""#raw-render(```dot
 {dot_str.strip()}
-```)
-"""
+```)"""
     return dot_str
 
 
